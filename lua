@@ -1,5 +1,5 @@
--- ALTER UI Library v6.6
--- Core Patches: Visual State Sync, Config Override, Section Sizing Fixes, Sidebar Widgets.
+-- ALTER UI Library v6.7
+-- Premium Features: Instant Section Collapsing, UI Toggle Animations, Smooth Window Physics.
 
 local AlterLib = {}
 AlterLib.__index = AlterLib
@@ -13,7 +13,7 @@ local LP      = Players.LocalPlayer
 
 local startTime = os.time()
 
--- Premium Dark Theme Palette
+-- Slate Black/White Accent Palette
 local C = {
     BG        = Color3.fromRGB(10,  10,  10),
     PANEL     = Color3.fromRGB(15,  15,  15),
@@ -38,7 +38,6 @@ local TI = {
     MED    = TweenInfo.new(0.20, Enum.EasingStyle.Quad,   Enum.EasingDirection.Out),
     SLOW   = TweenInfo.new(0.32, Enum.EasingStyle.Quad,   Enum.EasingDirection.Out),
     SPRING = TweenInfo.new(0.38, Enum.EasingStyle.Back,   Enum.EasingDirection.Out),
-    SINE   = TweenInfo.new(0.26, Enum.EasingStyle.Sine,   Enum.EasingDirection.InOut),
 }
 
 local TWEENABLE = {
@@ -332,9 +331,7 @@ function ConfigSys:Save(name)
     end
     local ok, json = pcall(function() return HTTP:JSONEncode(data) end)
     if not ok then return false, "encode failed" end
-    
     local path = self.folder.."/"..name..".json"
-    -- ✅ Overwrite Fix: deletes old configuration to clear caches
     pcall(function()
         if isfile(path) then delfile(path) end
     end)
@@ -554,7 +551,7 @@ function AlterLib:Prompt(cfg)
     Tw(card, TI.SPRING, {Size=UDim2.new(0,340,0,142)})
 end
 
--- Primary Window Interface
+-- Primary Window Module
 function AlterLib:Window(cfg)
     cfg = cfg or {}
     local IS_MOB = UIS.TouchEnabled and not UIS.KeyboardEnabled
@@ -594,7 +591,6 @@ function AlterLib:Window(cfg)
     })
     MakeCorner(accentLine, 1)
 
-    -- ✅ Title Text Restored: Transparency is set to visible (0) directly by default
     local hubLbl = MakeLabel(titleBar, {
         Text=cfg.Name or "ALTER", TextSize=14, Font=Enum.Font.GothamBlack,
         TextColor3=C.T_PRI, TextTransparency=0, RichText=true,
@@ -611,7 +607,50 @@ function AlterLib:Window(cfg)
     MakeList(ctrlF, Enum.FillDirection.Horizontal, 6)
 
     local minimised = false
+    local visible = true
+    local uiToggleKey = Enum.KeyCode.RightShift -- Default UI toggle keybind
     local bodyFrame
+
+    -- ✅ Dynamic Close Out Animation: Fades out elements and scales down frame cleanly on destruction
+    local function performClose()
+        Tw(root, TI.MED, {
+            Size = UDim2.new(0, WIN_W, 0, 0),
+            BackgroundTransparency = 1,
+        })
+        Tw(titleBar, TI.FAST, {BackgroundTransparency = 1})
+        Tw(accentLine, TI.FAST, {BackgroundTransparency = 1})
+        task.delay(0.28, function()
+            pcall(function() sg:Destroy() end)
+        end)
+    end
+
+    -- ✅ Hide/Show toggles inside core frames
+    local function toggleUIVisibility()
+        visible = not visible
+        if visible then
+            root.Visible = true
+            Tw(root, TI.SPRING, {
+                Size = UDim2.new(0, WIN_W, 0, WIN_H),
+                BackgroundTransparency = 0
+            })
+        else
+            Tw(root, TI.MED, {
+                Size = UDim2.new(0, WIN_W, 0, 0),
+                BackgroundTransparency = 1
+            })
+            task.delay(0.22, function()
+                if not visible then root.Visible = false end
+            end)
+        end
+    end
+
+    -- Global keypress tracker for hiding UI
+    UIS.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        if input.KeyCode == uiToggleKey then
+            toggleUIVisibility()
+        end
+    end)
 
     local function CtrlBtn(sym, action)
         local b = MakeButton(ctrlF, {
@@ -643,12 +682,7 @@ function AlterLib:Window(cfg)
                 or  UDim2.new(0,WIN_W,0,WIN_H)
         })
     end)
-    CtrlBtn("x", function()
-        Tw(root, TI.MED, {Size=UDim2.new(0,WIN_W,0,0), BackgroundTransparency=1})
-        task.delay(0.28, function()
-            pcall(function() sg:Destroy() end)
-        end)
-    end)
+    CtrlBtn("x", performClose)
 
     MakeDraggable(titleBar, root)
 
@@ -686,7 +720,6 @@ function AlterLib:Window(cfg)
         BackgroundColor3=C.BORDER, BackgroundTransparency=0, ZIndex=4,
     })
 
-    -- Adjusted scroll-height dynamically to preserve room for bottom sidebar widgets
     local tabScroll = MakeScrollFrame(sidebar, {
         Size=UDim2.new(1,0,1,-96), Position=UDim2.new(0,0,0,52),
         ScrollBarThickness=0, ZIndex=4,
@@ -694,7 +727,6 @@ function AlterLib:Window(cfg)
     MakePadding(tabScroll, 4, 4, 6, 6)
     MakeList(tabScroll, Enum.FillDirection.Vertical, 4)
 
-    -- ✅ Sidebar Bottom Dashboard (Timer + Discord Button)
     local sideBottom = MakeFrame(sidebar, {
         Size = UDim2.new(1, 0, 0, 36),
         Position = UDim2.new(0, 0, 1, -36),
@@ -769,6 +801,13 @@ function AlterLib:Window(cfg)
     end)
 
     local winObj = {_tabs={}, Config=cfgSys}
+
+    -- API method exposing window keybind updates dynamically
+    function winObj:SetKeybind(key)
+        if typeof(key) == "EnumItem" and key.EnumType == Enum.KeyCode then
+            uiToggleKey = key
+        end
+    end
 
     function winObj:Tab(name)
         local tabObj = {_name=name}
@@ -845,7 +884,6 @@ function AlterLib:Window(cfg)
 
         if #self._tabs == 1 then activate() end
 
-        -- Section logic
         function tabObj:Section(secName)
             local secObj    = {}
             local collapsed = false
@@ -866,7 +904,6 @@ function AlterLib:Window(cfg)
             })
             MakeCorner(hdr, 8)
 
-            -- Flat cover layer (prevents corner rounded overlaps on base)
             local bottomCover = MakeFrame(hdr, {
                 Size=UDim2.new(1,0,0.5,0), Position=UDim2.new(0,0,0.5,0),
                 BackgroundColor3=C.ELEM, BackgroundTransparency=0, ZIndex=4,
@@ -905,15 +942,16 @@ function AlterLib:Window(cfg)
             MakePadding(elems, 8, 10, 10, 10)
             local elemsLL = MakeList(elems, Enum.FillDirection.Vertical, 6)
 
+            -- ✅ Instant Section Toggling Fix: Toggles layout instantly (collapsed logic runs without layout delay)
             local function doCollapse()
                 collapsed = not collapsed
                 elemsWrap.Visible = not collapsed
                 if collapsed then
-                    Tw(collBtn, TI.FAST, {Rotation=45})
-                    Tw(stripe,  TI.FAST, {BackgroundColor3=C.T_DIM})
+                    collBtn.Rotation = 45
+                    stripe.BackgroundColor3 = C.T_DIM
                 else
-                    Tw(collBtn, TI.FAST, {Rotation=0})
-                    Tw(stripe,  TI.FAST, {BackgroundColor3=C.WHITE})
+                    collBtn.Rotation = 0
+                    stripe.BackgroundColor3 = C.WHITE
                 end
             end
 
@@ -930,7 +968,7 @@ function AlterLib:Window(cfg)
             })
             hdrHit.MouseButton1Click:Connect(doCollapse)
 
-            -- ✅ Hover Truncation Fix: Bottom cover colors update in sync with base header frame
+            -- Hover updates sync cleanly to solve grayed split visual glitch
             hdrHit.MouseEnter:Connect(function()
                 Tw(hdr, TI.FAST, {BackgroundColor3=C.HOVER})
                 Tw(bottomCover, TI.FAST, {BackgroundColor3=C.HOVER})
@@ -950,7 +988,7 @@ function AlterLib:Window(cfg)
                 return f
             end
 
-            -- UI Elements
+            -- Elements Builders
             function secObj:Label(text, col)
                 local f = MakeFrame(elems, {
                     Size=UDim2.new(1,0,0,0), 
@@ -1071,7 +1109,7 @@ function AlterLib:Window(cfg)
                     if not state then Tw(row,TI.FAST,{BackgroundColor3=C.ELEM}) end
                 end)
 
-                -- ✅ Config visual loaders trigger callbacks correctly
+                -- ✅ Callback executes correctly on configuration file loads
                 function obj:Set(v, silent) setState(v, silent) end
                 function obj:Get() return state end
 
@@ -1168,7 +1206,7 @@ function AlterLib:Window(cfg)
                     if not state then Tw(row,TI.FAST,{BackgroundColor3=C.ELEM}) end
                 end)
 
-                -- ✅ Config loads now map visual change to trigger callback
+                -- ✅ Config loader hooks dynamically execute callbacks
                 function obj:Set(v, silent) setState(v, silent) end
                 function obj:SetKey(k, silent) setBind(k, silent) end
                 function obj:Get() return state end
@@ -1276,7 +1314,7 @@ function AlterLib:Window(cfg)
                     if not dragging then Tw(wrap,TI.FAST,{BackgroundColor3=C.ELEM}) end
                 end)
 
-                -- ✅ Callback is triggered on loaded config updates
+                -- ✅ Callback executes cleanly on dynamically loaded value changes
                 function obj:Set(v, silent) update(v, silent) end
                 function obj:Get() return val end
 
@@ -1416,7 +1454,7 @@ function AlterLib:Window(cfg)
                     if not open then Tw(ddWrap,TI.FAST,{BackgroundColor3=C.ELEM}) end
                 end)
 
-                -- ✅ Callback executes correctly on dynamic config loads
+                -- ✅ Callback executes correctly on dynamically loaded config file options
                 function obj:Set(v, silent) 
                     sel=v;selLbl.Text=tostring(v);buildOpts() 
                     if not silent and cb then task.spawn(cb, v) end
@@ -1544,7 +1582,7 @@ function AlterLib:Window(cfg)
                     if not open then Tw(ddWrap,TI.FAST,{BackgroundColor3=C.ELEM}) end
                 end)
 
-                -- ✅ MultiDropdown config state synchronizer triggers correctly
+                -- ✅ MultiDropdown loads state dynamically and executes callback triggers cleanly
                 function obj:Set(arr, silent)
                     selected={}
                     if type(arr)=="table" then for _,v in ipairs(arr) do selected[v]=true end end
@@ -1615,7 +1653,7 @@ function AlterLib:Window(cfg)
                 row.MouseEnter:Connect(function() Tw(row,TI.FAST,{BackgroundColor3=C.HOVER}) end)
                 row.MouseLeave:Connect(function() Tw(row,TI.FAST,{BackgroundColor3=C.ELEM}) end)
 
-                -- ✅ Config system sync maps correctly to visually trigger functions
+                -- ✅ Config values loaded dynamically execute set hooks cleanly
                 function obj:Set(k, silent) setBind(k, silent) end
                 function obj:Get() return bound end
 
