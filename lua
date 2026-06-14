@@ -1,5 +1,7 @@
--- ALTER UI Library v6.0
--- Full Rewrite: Auto-scaling, responsive layouts, executor safety, premium styling.
+-- =============================================================================
+-- ALTER UI Library v6.0 (Unified Bundle)
+-- All fixes applied: No read-only crashes, perfect auto-scaling, modern design.
+-- =============================================================================
 
 local AlterLib = {}
 AlterLib.__index = AlterLib
@@ -11,7 +13,7 @@ local CoreGui = game:GetService("CoreGui")
 local HTTP    = game:GetService("HttpService")
 local LP      = Players.LocalPlayer
 
--- Premium Dark/White Minimalist Palette
+-- Minimalist Premium Dark Theme Palette
 local C = {
     BG        = Color3.fromRGB(10,  10,  10),
     PANEL     = Color3.fromRGB(15,  15,  15),
@@ -183,25 +185,16 @@ local function MakeScrollFrame(parent, props)
     return s
 end
 
--- Completely Safe ScreenGui Constructor to prevent "readonly table" crashes
 local function MakeSG(id)
     local name = "ALTER_" .. id
-    
-    -- Safe cleanup checks
     pcall(function()
-        if CoreGui:FindFirstChild(name) then
-            CoreGui:FindFirstChild(name):Destroy()
-        end
+        if CoreGui:FindFirstChild(name) then CoreGui:FindFirstChild(name):Destroy() end
     end)
     pcall(function()
-        if LP.PlayerGui:FindFirstChild(name) then
-            LP.PlayerGui:FindFirstChild(name):Destroy()
-        end
+        if LP.PlayerGui:FindFirstChild(name) then LP.PlayerGui:FindFirstChild(name):Destroy() end
     end)
 
     local sg = nil
-
-    -- Priority 1: CoreGui (Exploits/PC)
     pcall(function()
         local s = Instance.new("ScreenGui")
         s.Name = name
@@ -212,8 +205,6 @@ local function MakeSG(id)
         s.Parent = CoreGui
         if s.Parent == CoreGui then sg = s end
     end)
-
-    -- Priority 2: Safe GetHui fallback
     if not sg then
         pcall(function()
             local s = Instance.new("ScreenGui")
@@ -225,8 +216,6 @@ local function MakeSG(id)
             if s.Parent then sg = s end
         end)
     end
-
-    -- Priority 3: PlayerGui fallback (Mobile devices)
     if not sg then
         pcall(function()
             local s = Instance.new("ScreenGui")
@@ -238,7 +227,6 @@ local function MakeSG(id)
             sg = s
         end)
     end
-
     return sg
 end
 
@@ -309,7 +297,7 @@ local function MakeDraggable(handle, target)
     end)
 end
 
--- Config system
+-- Config System
 local ConfigSys = {}
 ConfigSys.__index = ConfigSys
 
@@ -398,9 +386,8 @@ function ConfigSys:AutoLoadByGameId(map)
     end)
 end
 
--- Notifications Panel
+-- Notification Pipeline
 local _nSG, _nHolder
-
 local function EnsureNotif()
     if _nSG and _nSG.Parent then return end
     _nSG = MakeSG("NOTIF")
@@ -561,7 +548,7 @@ function AlterLib:Prompt(cfg)
     Tw(card, TI.SPRING, {Size=UDim2.new(0,340,0,142)})
 end
 
--- Main Window Interface
+-- Primary Window Builder
 function AlterLib:Window(cfg)
     cfg = cfg or {}
     local IS_MOB = UIS.TouchEnabled and not UIS.KeyboardEnabled
@@ -792,12 +779,12 @@ function AlterLib:Window(cfg)
 
         if #self._tabs == 1 then activate() end
 
-        -- Section interface with Adaptive Dynamic Auto-scaling Layouts
+        -- Section Object Builder
         function tabObj:Section(secName)
             local secObj    = {}
             local collapsed = false
 
-            -- Outer wrap with AutomaticSize dynamic container logic
+            -- Adaptive Dynamic Sizing Layout wrapping block
             local wrap = MakeFrame(panel, {
                 Size                   = UDim2.new(1, 0, 0, 0),
                 BackgroundColor3       = C.CARD,
@@ -1204,7 +1191,7 @@ function AlterLib:Window(cfg)
                 return obj
             end
 
-            -- New Native TextBox Element
+            -- Modern Dynamic TextBox Input Element
             function secObj:Input(text, placeholder, cb)
                 local obj = {}
                 local row = ElemRow(ROW_H)
@@ -1237,13 +1224,12 @@ function AlterLib:Window(cfg)
                 return obj
             end
 
-            -- Dynamic Section Expanding Dropdown Builder
+            -- Section Expanding Dropdown Builder
             function secObj:Dropdown(text, opts, cb)
                 local obj={};local sel=nil;local open=false
                 opts=opts or {}
                 local ITEM_H=ROW_H-4
                 
-                -- Dynamic sizing logic via AutomaticSize
                 local ddWrap=MakeFrame(elems,{
                     Size=UDim2.new(1,0,0,ROW_H),BackgroundColor3=C.ELEM,
                     BackgroundTransparency=0,ZIndex=10,
@@ -1344,7 +1330,7 @@ function AlterLib:Window(cfg)
                 return obj
             end
 
-            -- Dynamic Section Expanding MultiDropdown Builder
+            -- Section Expanding MultiDropdown Builder
             function secObj:MultiDropdown(text, opts, cb)
                 local obj={};local selected={};local open=false
                 opts=opts or {}
@@ -1530,6 +1516,151 @@ function AlterLib:Window(cfg)
     return winObj
 end -- Window
 
-AlterLib.Colors = C
+-- =============================================================================
+-- USER INTERFACE LOADER & SETUP
+-- =============================================================================
 
-return AlterLib
+local Alter = AlterLib
+local C = Alter.Colors
+local win = Alter:Window({
+    Name   = "ALTER",
+    Folder = "AlterHub",
+})
+local Cfg = win.Config
+
+Cfg:AutoLoadByPlaceId({
+    ["6872265039"] = "arsenal",
+    ["2788229376"] = "phantom_forces",
+})
+
+-- COMBAT TAB
+local combat = win:Tab("Combat")
+local aimSec = combat:Section("Aimbot")
+local aimTog  = aimSec:ToggleBind("Enable Aimbot", Enum.KeyCode.X, function(v) print("[Aim]",v) end)
+local fovSl   = aimSec:Slider("FOV", 1, 360, 90, function(v) print("[FOV]",v) end, 1)
+local smSl    = aimSec:Slider("Smoothness", 1, 100, 20, function(v) end, 0.1)
+local boneDd  = aimSec:Dropdown("Target Bone", {"Head","Neck","Torso","HumanoidRootPart"}, function(v) end)
+boneDd:Set("Head")
+
+local trigSec = combat:Section("Triggerbot")
+local trigTog = trigSec:ToggleBind("Enable", Enum.KeyCode.T, function(v) end)
+local delaySl = trigSec:Slider("Delay ms", 0, 500, 60, function(v) end, 1)
+trigSec:Button("Test Fire", function()
+    Alter:Prompt({Title="Test", Message="Fire test shot?", YesText="Fire", NoText="Cancel",
+        Yes=function() Alter:Notify({Title="Fired",Message="Shot!",Duration=2}) end})
+end)
+
+local silSec  = combat:Section("Silent Aim")
+local silTog  = silSec:Toggle("Enable", function(v) end)
+local hitDd   = silSec:MultiDropdown("Hitboxes", {"Head","Neck","Chest","Stomach"}, function(v) end)
+
+-- VISUALS TAB
+local vis    = win:Tab("Visuals")
+local espSec = vis:Section("ESP")
+local espTog  = espSec:Toggle("Enable ESP",  function(v) end)
+local boxTog  = espSec:Toggle("Box ESP",     function(v) end)
+local nameTog = espSec:Toggle("Name Tags",   function(v) end)
+local hpTog   = espSec:Toggle("Health Bar",  function(v) end)
+local distSl  = espSec:Slider("Distance", 50, 3000, 600, function(v) end, 10)
+espSec:Label("ESP only shows players in range.", C.T_DIM)
+
+local chamSec = vis:Section("Chams")
+local chamTog = chamSec:Toggle("Enable Chams", function(v) end)
+local chamDd  = chamSec:Dropdown("Style", {"Flat","Wireframe","Neon","Glass"}, function(v) end)
+chamDd:Set("Flat")
+
+-- MOVEMENT TAB
+local move   = win:Tab("Movement")
+local spdSec = move:Section("Speed")
+local spdTog = spdSec:ToggleBind("Speed Hack", Enum.KeyCode.G, function(v) end)
+local spdSl  = spdSec:Slider("Walk Speed", 16, 250, 60, function(v)
+    local h = game.Players.LocalPlayer.Character
+        and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid")
+    if h and spdTog:Get() then h.WalkSpeed = v end
+end, 1)
+
+local jmpSec = move:Section("Jump")
+local jmpTog = jmpSec:Toggle("High Jump", function(v) end)
+local jmpSl  = jmpSec:Slider("Jump Power", 50, 500, 50, function(v) end, 1)
+local ncTog  = jmpSec:ToggleBind("Noclip", Enum.KeyCode.V, function(v) end)
+
+-- MISC TAB
+local misc   = win:Tab("Misc")
+local util   = misc:Section("Utility")
+local afkTog = util:Toggle("Anti-AFK", function(v) end)
+util:Button("Rejoin", function()
+    Alter:Prompt({Title="Rejoin", Message="Reconnect?", YesText="Yes", NoText="No",
+        Yes=function()
+            game:GetService("TeleportService"):Teleport(game.PlaceId, game.Players.LocalPlayer)
+        end})
+end)
+
+-- CONFIG TAB
+local cfgTab = win:Tab("Config")
+local cfgSec = cfgTab:Section("Manager")
+local cfgName = "default"
+
+-- Safe Native Textbox Input Field
+local nameInput = cfgSec:Input("Config Name", "default", function(text)
+    cfgName = text
+end)
+
+local cfgListDd = cfgSec:Dropdown("Saved Profiles", Cfg:List(), function(v)
+    cfgName = v
+    nameInput:Set(v)
+    Alter:Notify({Title="Config", Message='Selected: '..v, Duration=2})
+end)
+
+cfgSec:Separator()
+
+cfgSec:Button("Refresh Profiles", function()
+    cfgListDd:Refresh(Cfg:List(), false)
+end)
+cfgSec:Button("Save Profile", function()
+    local ok, e = Cfg:Save(cfgName)
+    cfgListDd:Refresh(Cfg:List(), false)
+    Alter:Notify({Title="Config Manager",
+        Message=ok and ("Saved: "..cfgName) or ("Failed: "..tostring(e)), Duration=2.5})
+end)
+cfgSec:Button("Load Profile", function()
+    Alter:Notify({Title="Config Manager",
+        Message=Cfg:Load(cfgName) and ("Loaded: "..cfgName) or "Not found.", Duration=2.5})
+end)
+cfgSec:Button("Delete Profile", function()
+    Alter:Prompt({Title="Delete Profile", Message='Delete "'..cfgName..'"?',
+        YesText="Delete", NoText="Cancel",
+        Yes=function()
+            Cfg:Delete(cfgName); cfgName="default"
+            cfgListDd:Refresh(Cfg:List(), false)
+            Alter:Notify({Title="Config Manager", Message="Deleted.", Duration=2})
+        end})
+end)
+
+local autoSec = cfgTab:Section("Auto Load Profiles")
+autoSec:Label("Current PlaceId: " .. game.PlaceId, C.T_SEC)
+autoSec:Label("Current GameId:  " .. game.GameId,  C.T_SEC)
+autoSec:Separator()
+autoSec:Button("Save profile as PlaceId", function()
+    local ok = Cfg:Save(tostring(game.PlaceId))
+    cfgListDd:Refresh(Cfg:List(), false)
+    Alter:Notify({Title="AutoLoader", Message=ok and "Config Saved!" or "Failed.", Duration=2})
+end)
+autoSec:Button("Save profile as GameId", function()
+    local ok = Cfg:Save(tostring(game.GameId))
+    cfgListDd:Refresh(Cfg:List(), false)
+    Alter:Notify({Title="AutoLoader", Message=ok and "Config Saved!" or "Failed.", Duration=2})
+end)
+
+-- Default settings setup on runtime delay
+task.delay(0.9, function()
+    aimTog:Set(false); trigTog:Set(false); silTog:Set(false)
+    espTog:Set(true);  boxTog:Set(true);   nameTog:Set(true); hpTog:Set(false)
+    chamTog:Set(false); spdTog:Set(false); jmpTog:Set(false); ncTog:Set(false)
+    afkTog:Set(true)
+    boneDd:Set("Head"); chamDd:Set("Flat")
+    hitDd:Set({"Head","Chest"})
+    fovSl:Set(90); smSl:Set(20); delaySl:Set(60)
+    distSl:Set(600); spdSl:Set(60); jmpSl:Set(150)
+
+    Alter:Notify({Title="System Loaded", Message="ALTER Premium ready.", Duration=3})
+end)
