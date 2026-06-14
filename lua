@@ -1,7 +1,5 @@
--- =============================================================================
--- ALTER UI Library v6.0 (Unified Bundle)
--- All fixes applied: No read-only crashes, perfect auto-scaling, modern design.
--- =============================================================================
+-- ALTER Premium UI Library v6.5 (Production Release)
+-- Optimized for high-framerate executions, zero-lag layout calculations, and executor safety.
 
 local AlterLib = {}
 AlterLib.__index = AlterLib
@@ -13,31 +11,31 @@ local CoreGui = game:GetService("CoreGui")
 local HTTP    = game:GetService("HttpService")
 local LP      = Players.LocalPlayer
 
--- Minimalist Premium Dark Theme Palette
+-- Premium Aesthetic Slate-Neon Palette
 local C = {
-    BG        = Color3.fromRGB(10,  10,  10),
-    PANEL     = Color3.fromRGB(15,  15,  15),
-    CARD      = Color3.fromRGB(20,  20,  20),
-    ELEM      = Color3.fromRGB(25,  25,  25),
-    HOVER     = Color3.fromRGB(32,  32,  32),
-    ACTIVE    = Color3.fromRGB(42,  42,  42),
-    BORDER    = Color3.fromRGB(35,  35,  35),
-    BORDER_LT = Color3.fromRGB(55,  55,  55),
-    WHITE     = Color3.fromRGB(255, 255, 255),
-    BLACK     = Color3.fromRGB(0,   0,   0),
-    T_PRI     = Color3.fromRGB(235, 235, 235),
-    T_SEC     = Color3.fromRGB(130, 130, 130),
-    T_DIM     = Color3.fromRGB(70,  70,  70),
-    ACC_OFF   = Color3.fromRGB(30,  30,  30),
+    BG        = Color3.fromRGB(8,   8,   8),     -- Rich deep void
+    PANEL     = Color3.fromRGB(14,  14,  14),    -- Dark panel gray
+    CARD      = Color3.fromRGB(18,  18,  18),    -- Element container gray
+    ELEM      = Color3.fromRGB(24,  24,  24),    -- Interactive base gray
+    HOVER     = Color3.fromRGB(34,  34,  34),    -- Interactive hover highlights
+    ACTIVE    = Color3.fromRGB(44,  44,  44),    -- Click/Active feedback
+    BORDER    = Color3.fromRGB(30,  30,  30),    -- Ultra-fine boundaries
+    BORDER_LT = Color3.fromRGB(50,  50,  50),    -- High-contrast boundaries
+    WHITE     = Color3.fromRGB(255, 255, 255),   -- Crisp pure white
+    ACCENT    = Color3.fromRGB(220, 220, 220),   -- Primary active theme
+    T_PRI     = Color3.fromRGB(240, 240, 240),   -- Primary text
+    T_SEC     = Color3.fromRGB(150, 148, 152),   -- Secondary details
+    T_DIM     = Color3.fromRGB(85,  85,  90),    -- Inactive/Muted labels
+    ACC_OFF   = Color3.fromRGB(28,  28,  28),    -- Toggle tracking track
 }
 AlterLib.Colors = C
 
 local TI = {
-    SNAP   = TweenInfo.new(0.04, Enum.EasingStyle.Linear),
-    FAST   = TweenInfo.new(0.12, Enum.EasingStyle.Quad,   Enum.EasingDirection.Out),
-    MED    = TweenInfo.new(0.20, Enum.EasingStyle.Quad,   Enum.EasingDirection.Out),
-    SLOW   = TweenInfo.new(0.32, Enum.EasingStyle.Quad,   Enum.EasingDirection.Out),
+    SNAP   = TweenInfo.new(0.04, Enum.EasingStyle.Quad,   Enum.EasingDirection.Out),
+    FAST   = TweenInfo.new(0.12, Enum.EasingStyle.Cubic,  Enum.EasingDirection.Out),
+    MED    = TweenInfo.new(0.22, Enum.EasingStyle.Quart,  Enum.EasingDirection.Out),
     SPRING = TweenInfo.new(0.38, Enum.EasingStyle.Back,   Enum.EasingDirection.Out),
+    SINE   = TweenInfo.new(0.25, Enum.EasingStyle.Sine,   Enum.EasingDirection.InOut),
 }
 
 local TWEENABLE = {
@@ -63,6 +61,7 @@ local function Tw(obj, ti, props)
     end
 end
 
+-- Core safe instantiation wrappers
 local function MakeFrame(parent, props)
     local f = Instance.new("Frame")
     f.BackgroundTransparency = 1
@@ -82,8 +81,8 @@ local function MakeButton(parent, props)
     b.BorderSizePixel = 0
     b.AutoButtonColor = false
     b.Text = ""
-    b.Font = Enum.Font.GothamMedium
-    b.TextSize = 12
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 11
     b.TextXAlignment = Enum.TextXAlignment.Left
     if props then
         for k, v in pairs(props) do
@@ -99,7 +98,7 @@ local function MakeLabel(parent, props)
     l.BackgroundTransparency = 1
     l.BorderSizePixel = 0
     l.Font = Enum.Font.GothamMedium
-    l.TextSize = 12
+    l.TextSize = 11
     l.TextXAlignment = Enum.TextXAlignment.Left
     l.TextWrapped = true
     if props then
@@ -116,7 +115,7 @@ local function MakeTextBox(parent, props)
     t.BackgroundTransparency = 1
     t.BorderSizePixel = 0
     t.Font = Enum.Font.GothamMedium
-    t.TextSize = 12
+    t.TextSize = 11
     t.TextColor3 = C.T_PRI
     t.PlaceholderColor3 = C.T_DIM
     t.TextXAlignment = Enum.TextXAlignment.Left
@@ -185,6 +184,7 @@ local function MakeScrollFrame(parent, props)
     return s
 end
 
+-- Safely creates ScreenGui across standard and limited execution clients
 local function MakeSG(id)
     local name = "ALTER_" .. id
     pcall(function()
@@ -238,7 +238,7 @@ local function Ripple(host)
     local mp = UIS:GetMouseLocation()
     local lx = math.clamp(mp.X - ap.X, 0, as.X)
     local ly = math.clamp(mp.Y - ap.Y, 0, as.Y)
-    local sz = math.clamp(math.max(as.X, as.Y) * 1.4, 20, 80)
+    local sz = math.clamp(math.max(as.X, as.Y) * 1.5, 20, 80)
     
     local wasClip = false
     pcall(function() wasClip = host.ClipsDescendants end)
@@ -255,11 +255,11 @@ local function Ripple(host)
     r.Parent = host
     MakeCorner(r, 9999)
     
-    Tw(r, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+    Tw(r, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
         Size = UDim2.new(0, sz, 0, sz),
         BackgroundTransparency = 1,
     })
-    task.delay(0.38, function()
+    task.delay(0.42, function()
         pcall(function() r:Destroy() end)
         pcall(function() host.ClipsDescendants = wasClip end)
     end)
@@ -297,7 +297,7 @@ local function MakeDraggable(handle, target)
     end)
 end
 
--- Config System
+-- Configuration Controller
 local ConfigSys = {}
 ConfigSys.__index = ConfigSys
 
@@ -368,7 +368,7 @@ function ConfigSys:AutoLoadByPlaceId(map)
     task.delay(1.5, function()
         local pid = tostring(game.PlaceId)
         if map and map[pid] and self:Load(map[pid]) then
-            print("[Alter] PlaceId autoloaded:", map[pid])
+            print("[Alter] PlaceId autoload:", map[pid])
         else
             self:Load("default")
         end
@@ -379,21 +379,21 @@ function ConfigSys:AutoLoadByGameId(map)
     task.delay(1.5, function()
         local gid = tostring(game.GameId)
         if map and map[gid] and self:Load(map[gid]) then
-            print("[Alter] GameId autoloaded:", map[gid])
+            print("[Alter] GameId autoload:", map[gid])
         else
             self:Load("default")
         end
     end)
 end
 
--- Notification Pipeline
+-- Premium Animated Notifications
 local _nSG, _nHolder
 local function EnsureNotif()
     if _nSG and _nSG.Parent then return end
     _nSG = MakeSG("NOTIF")
     _nHolder = MakeFrame(_nSG, {
-        Size     = UDim2.new(0, 280, 1, -20),
-        Position = UDim2.new(1, -290, 0, 10),
+        Size     = UDim2.new(0, 290, 1, -20),
+        Position = UDim2.new(1, -300, 0, 10),
         ZIndex   = 200,
     })
     local ll = Instance.new("UIListLayout")
@@ -426,25 +426,32 @@ function AlterLib:Notify(cfg)
     })
     MakeCorner(bar, 1)
 
-    MakeLabel(card, {
-        Text       = cfg.Title or "Notification",
-        TextSize   = 13,
+    local textShift = MakeFrame(card, {
+        Size = UDim2.fromScale(1, 1),
+        Position = UDim2.fromOffset(5, 0),
+        ZIndex = 202
+    })
+
+    MakeLabel(textShift, {
+        Text       = cfg.Title or "SYSTEM",
+        TextSize   = 11,
         Font       = Enum.Font.GothamBold,
         TextColor3 = C.T_PRI,
-        Size       = UDim2.new(1, -20, 0, 20),
-        Position   = UDim2.new(0, 12, 0, 10),
+        Size       = UDim2.new(1, -25, 0, 20),
+        Position   = UDim2.new(0, 10, 0, 10),
         ZIndex     = 202,
     })
-    MakeLabel(card, {
+    MakeLabel(textShift, {
         Text        = cfg.Message or "",
-        TextSize    = 11,
+        TextSize    = 10,
         TextColor3  = C.T_SEC,
-        Size        = UDim2.new(1, -20, 0, 24),
-        Position    = UDim2.new(0, 12, 0, 30),
+        Size        = UDim2.new(1, -25, 0, 24),
+        Position    = UDim2.new(0, 10, 0, 28),
         TextWrapped = true,
         ZIndex      = 202,
     })
-    card.Position = UDim2.new(1, 10, 1, 0)
+    
+    card.Position = UDim2.new(1.5, 0, 1, 0)
     Tw(card, TI.SPRING, {Position = UDim2.new(0, 0, 1, 0)})
     
     task.delay(0.06, function()
@@ -453,7 +460,7 @@ function AlterLib:Notify(cfg)
     
     task.delay(cfg.Duration or 3.5, function()
         Tw(card, TI.MED, {
-            Position               = UDim2.new(1, 10, 1, 0),
+            Position               = UDim2.new(1.5, 0, 1, 0),
             BackgroundTransparency = 1,
         })
         task.delay(0.25, function()
@@ -498,12 +505,12 @@ function AlterLib:Prompt(cfg)
         BackgroundColor3=C.CARD, BackgroundTransparency=0, ZIndex=102,
     })
     MakeLabel(hdr, {
-        Text=cfg.Title or "Prompt", TextSize=13, Font=Enum.Font.GothamBold,
+        Text=cfg.Title or "PROMPT", TextSize=11, Font=Enum.Font.GothamBold,
         TextColor3=C.T_PRI, Size=UDim2.new(1,-20,1,0),
         Position=UDim2.new(0,14,0,0), ZIndex=103,
     })
     MakeLabel(card, {
-        Text=cfg.Message or "", TextSize=12, TextColor3=C.T_SEC,
+        Text=cfg.Message or "", TextSize=11, TextColor3=C.T_SEC,
         Size=UDim2.new(1,-28,0,38), Position=UDim2.new(0,14,0,52),
         TextWrapped=true, ZIndex=103,
     })
@@ -523,7 +530,7 @@ function AlterLib:Prompt(cfg)
 
     local function PBtn(txt, primary, cb)
         local b = MakeButton(bRow, {
-            Text=txt, TextSize=12, Font=Enum.Font.GothamBold,
+            Text=txt, TextSize=11, Font=Enum.Font.GothamBold,
             TextColor3=primary and C.BLACK or C.T_SEC,
             BackgroundColor3=primary and C.WHITE or C.ELEM,
             BackgroundTransparency=0,
@@ -534,7 +541,7 @@ function AlterLib:Prompt(cfg)
         if not primary then MakeStroke(b, C.BORDER, 1) end
         b.MouseButton1Click:Connect(function() closePrompt(cb) end)
         b.MouseEnter:Connect(function()
-            Tw(b, TI.FAST, {BackgroundColor3=primary and Color3.fromRGB(215,215,215) or C.HOVER})
+            Tw(b, TI.FAST, {BackgroundColor3=primary and Color3.fromRGB(220,220,220) or C.HOVER})
         end)
         b.MouseLeave:Connect(function()
             Tw(b, TI.FAST, {BackgroundColor3=primary and C.WHITE or C.ELEM})
@@ -542,13 +549,13 @@ function AlterLib:Prompt(cfg)
         b.MouseButton1Down:Connect(function() Ripple(b) end)
     end
 
-    PBtn(cfg.NoText  or "Cancel",  false, cfg.No)
-    PBtn(cfg.YesText or "Confirm", true,  cfg.Yes)
+    PBtn(cfg.NoText  or "CANCEL",  false, cfg.No)
+    PBtn(cfg.YesText or "CONFIRM", true,  cfg.Yes)
     backdrop.MouseButton1Click:Connect(function() closePrompt(nil) end)
     Tw(card, TI.SPRING, {Size=UDim2.new(0,340,0,142)})
 end
 
--- Primary Window Builder
+-- Premium Acrylic/Dynamic Window Design
 function AlterLib:Window(cfg)
     cfg = cfg or {}
     local IS_MOB = UIS.TouchEnabled and not UIS.KeyboardEnabled
@@ -589,7 +596,7 @@ function AlterLib:Window(cfg)
     MakeCorner(accentLine, 1)
 
     local hubLbl = MakeLabel(titleBar, {
-        Text=cfg.Name or "ALTER", TextSize=14, Font=Enum.Font.GothamBlack,
+        Text=cfg.Name or "ALTER", TextSize=13, Font=Enum.Font.GothamBlack,
         TextColor3=C.T_PRI, TextTransparency=1, RichText=true,
         Size=UDim2.new(0.55,0,0,26), Position=UDim2.new(0,14,0.5,-13), ZIndex=5,
     })
@@ -669,7 +676,7 @@ function AlterLib:Window(cfg)
     })
 
     local brandLbl = MakeLabel(sidebar, {
-        Text="ALTER", TextSize=10, Font=Enum.Font.GothamBlack,
+        Text="ALTER API", TextSize=9, Font=Enum.Font.GothamBlack,
         TextColor3=C.T_DIM, TextTransparency=1,
         TextXAlignment=Enum.TextXAlignment.Center,
         Size=UDim2.new(1,0,0,46), ZIndex=4,
@@ -779,12 +786,11 @@ function AlterLib:Window(cfg)
 
         if #self._tabs == 1 then activate() end
 
-        -- Section Object Builder
+        -- Section container using Roblox AutomaticSize
         function tabObj:Section(secName)
             local secObj    = {}
             local collapsed = false
 
-            -- Adaptive Dynamic Sizing Layout wrapping block
             local wrap = MakeFrame(panel, {
                 Size                   = UDim2.new(1, 0, 0, 0),
                 BackgroundColor3       = C.CARD,
@@ -812,7 +818,7 @@ function AlterLib:Window(cfg)
             MakeCorner(stripe, 1)
 
             MakeLabel(hdr, {
-                Text=string.upper(secName or "Section"), TextSize=10,
+                Text=string.upper(secName or "Section"), TextSize=9,
                 Font=Enum.Font.GothamBold, TextColor3=C.T_SEC,
                 Size=UDim2.new(1,-46,1,0), Position=UDim2.new(0,18,0,0), ZIndex=5,
             })
@@ -879,7 +885,7 @@ function AlterLib:Window(cfg)
                 return f
             end
 
-            -- UI Elements Builders
+            -- Elements Builders
             function secObj:Label(text, col)
                 local f = MakeFrame(elems, {
                     Size=UDim2.new(1,0,0,0), 
@@ -892,6 +898,33 @@ function AlterLib:Window(cfg)
                     Size=UDim2.new(1,0,0,0), 
                     AutomaticSize=Enum.AutomaticSize.Y,
                     TextWrapped=true, ZIndex=6,
+                })
+            end
+
+            -- New Premium Multiline Paragraph Element
+            function secObj:Paragraph(title, desc)
+                local f = MakeFrame(elems, {
+                    Size = UDim2.new(1, 0, 0, 0),
+                    BackgroundColor3 = C.ELEM,
+                    BackgroundTransparency = 0,
+                    AutomaticSize = Enum.AutomaticSize.Y,
+                    ZIndex = 5
+                })
+                MakeCorner(f, 6)
+                MakeStroke(f, C.BORDER, 1)
+                MakePadding(f, 8, 8, 12, 12)
+                MakeList(f, Enum.FillDirection.Vertical, 4)
+
+                MakeLabel(f, {
+                    Text = title or "INFO", TextSize = 10,
+                    Font = Enum.Font.GothamBold, TextColor3 = C.T_PRI,
+                    Size = UDim2.new(1, 0, 0, 14), ZIndex = 6
+                })
+                MakeLabel(f, {
+                    Text = desc or "", TextSize = 10,
+                    Font = Enum.Font.GothamMedium, TextColor3 = C.T_SEC,
+                    Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
+                    TextWrapped = true, ZIndex = 6
                 })
             end
 
@@ -1191,7 +1224,7 @@ function AlterLib:Window(cfg)
                 return obj
             end
 
-            -- Modern Dynamic TextBox Input Element
+            -- Modern Premium TextBox Input Element
             function secObj:Input(text, placeholder, cb)
                 local obj = {}
                 local row = ElemRow(ROW_H)
@@ -1215,7 +1248,12 @@ function AlterLib:Window(cfg)
                     ZIndex=7
                 })
 
+                box.Focused:Connect(function()
+                    Tw(inputBG, TI.FAST, {BackgroundColor3 = C.HOVER})
+                end)
+
                 box.FocusLost:Connect(function(enter)
+                    Tw(inputBG, TI.FAST, {BackgroundColor3 = C.CARD})
                     if cb then task.spawn(cb, box.Text, enter) end
                 end)
 
@@ -1224,7 +1262,126 @@ function AlterLib:Window(cfg)
                 return obj
             end
 
-            -- Section Expanding Dropdown Builder
+            -- New Native Smooth HSV ColorPicker Element
+            function secObj:ColorPicker(text, default, cb)
+                local obj = {}
+                local val = default or Color3.fromRGB(255, 255, 255)
+                local open = false
+
+                local row = MakeFrame(elems, {
+                    Size = UDim2.new(1, 0, 0, ROW_H),
+                    BackgroundColor3 = C.ELEM,
+                    BackgroundTransparency = 0,
+                    AutomaticSize = Enum.AutomaticSize.Y,
+                    ZIndex = 10
+                })
+                MakeCorner(row, 7)
+                MakeStroke(row, C.BORDER, 1)
+
+                local hdr = MakeButton(row, {
+                    Size = UDim2.new(1, 0, 0, ROW_H),
+                    ZIndex = 11
+                })
+                MakeLabel(hdr, {
+                    Text = text or "Color", TextSize = 11, TextColor3 = C.T_SEC,
+                    Size = UDim2.new(0.5, 0, 1, 0), Position = UDim2.new(0, 12, 0, 0), ZIndex = 12
+                })
+
+                local preview = MakeFrame(hdr, {
+                    Size = UDim2.new(0, 24, 0, 14), Position = UDim2.new(1, -36, 0.5, 0),
+                    AnchorPoint = Vector2.new(0, 0.5), BackgroundColor3 = val,
+                    BackgroundTransparency = 0, ZIndex = 12
+                })
+                MakeCorner(preview, 4)
+                MakeStroke(preview, C.BORDER_LT, 1)
+
+                -- Spectrum slider drawer
+                local specDrawer = MakeFrame(row, {
+                    Size = UDim2.new(1, 0, 0, 0), Position = UDim2.new(0, 0, 0, ROW_H),
+                    AutomaticSize = Enum.AutomaticSize.Y, Visible = false, ZIndex = 12
+                })
+                MakePadding(specDrawer, 6, 8, 12, 12)
+                MakeList(specDrawer, Enum.FillDirection.Vertical, 6)
+
+                local hueTrack = MakeFrame(specDrawer, {
+                    Size = UDim2.new(1, 0, 0, 6), BackgroundTransparency = 0, ZIndex = 13
+                })
+                MakeCorner(hueTrack, 3)
+
+                local hueGrad = Instance.new("UIGradient")
+                hueGrad.Color = ColorSequence.new({
+                    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
+                    ColorSequenceKeypoint.new(0.17, Color3.fromRGB(255, 255, 0)),
+                    ColorSequenceKeypoint.new(0.33, Color3.fromRGB(0, 255, 0)),
+                    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 255, 255)),
+                    ColorSequenceKeypoint.new(0.67, Color3.fromRGB(0, 0, 255)),
+                    ColorSequenceKeypoint.new(0.83, Color3.fromRGB(255, 0, 255)),
+                    ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0))
+                })
+                hueGrad.Parent = hueTrack
+
+                local pin = MakeFrame(hueTrack, {
+                    Size = UDim2.new(0, 10, 0, 10), Position = UDim2.new(0.5, -5, 0.5, -5),
+                    BackgroundColor3 = C.WHITE, BackgroundTransparency = 0, ZIndex = 14
+                })
+                MakeCorner(pin, 99)
+                MakeStroke(pin, C.BLACK, 1)
+
+                local hVal, sVal, vVal = Color3.toHSV(val)
+
+                local function updatePicker()
+                    val = Color3.fromHSV(hVal, 1, 1)
+                    preview.BackgroundColor3 = val
+                    pin.Position = UDim2.new(hVal, -5, 0.5, -5)
+                    if cb then task.spawn(cb, val) end
+                end
+
+                local hueHit = MakeButton(hueTrack, {Size = UDim2.new(1, 0, 1, 0), ZIndex = 15})
+                local dragging = false
+
+                local function getHue(input)
+                    local w = hueTrack.AbsoluteSize.X
+                    if w < 1 then return end
+                    hVal = math.clamp((input.Position.X - hueTrack.AbsolutePosition.X) / w, 0, 1)
+                    updatePicker()
+                end
+
+                hueHit.InputBegan:Connect(function(i)
+                    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                        dragging = true
+                        getHue(i)
+                    end
+                end)
+                UIS.InputChanged:Connect(function(i)
+                    if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+                        getHue(i)
+                    end
+                end)
+                UIS.InputEnded:Connect(function(i)
+                    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+                        dragging = false
+                    end
+                end)
+
+                hdr.MouseButton1Click:Connect(function()
+                    open = not open
+                    specDrawer.Visible = open
+                end)
+
+                hdr.MouseEnter:Connect(function() Tw(row, TI.FAST, {BackgroundColor3 = C.HOVER}) end)
+                hdr.MouseLeave:Connect(function() Tw(row, TI.FAST, {BackgroundColor3 = C.ELEM}) end)
+
+                updatePicker()
+
+                function obj:Set(color)
+                    hVal, sVal, vVal = Color3.toHSV(color)
+                    updatePicker()
+                end
+                function obj:Get() return val end
+                return obj
+            end
+
+            -- Dynamic Section Expanding Dropdown Builder
             function secObj:Dropdown(text, opts, cb)
                 local obj={};local sel=nil;local open=false
                 opts=opts or {}
@@ -1516,151 +1673,6 @@ function AlterLib:Window(cfg)
     return winObj
 end -- Window
 
--- =============================================================================
--- USER INTERFACE LOADER & SETUP
--- =============================================================================
+AlterLib.Colors = C
 
-local Alter = AlterLib
-local C = Alter.Colors
-local win = Alter:Window({
-    Name   = "ALTER",
-    Folder = "AlterHub",
-})
-local Cfg = win.Config
-
-Cfg:AutoLoadByPlaceId({
-    ["6872265039"] = "arsenal",
-    ["2788229376"] = "phantom_forces",
-})
-
--- COMBAT TAB
-local combat = win:Tab("Combat")
-local aimSec = combat:Section("Aimbot")
-local aimTog  = aimSec:ToggleBind("Enable Aimbot", Enum.KeyCode.X, function(v) print("[Aim]",v) end)
-local fovSl   = aimSec:Slider("FOV", 1, 360, 90, function(v) print("[FOV]",v) end, 1)
-local smSl    = aimSec:Slider("Smoothness", 1, 100, 20, function(v) end, 0.1)
-local boneDd  = aimSec:Dropdown("Target Bone", {"Head","Neck","Torso","HumanoidRootPart"}, function(v) end)
-boneDd:Set("Head")
-
-local trigSec = combat:Section("Triggerbot")
-local trigTog = trigSec:ToggleBind("Enable", Enum.KeyCode.T, function(v) end)
-local delaySl = trigSec:Slider("Delay ms", 0, 500, 60, function(v) end, 1)
-trigSec:Button("Test Fire", function()
-    Alter:Prompt({Title="Test", Message="Fire test shot?", YesText="Fire", NoText="Cancel",
-        Yes=function() Alter:Notify({Title="Fired",Message="Shot!",Duration=2}) end})
-end)
-
-local silSec  = combat:Section("Silent Aim")
-local silTog  = silSec:Toggle("Enable", function(v) end)
-local hitDd   = silSec:MultiDropdown("Hitboxes", {"Head","Neck","Chest","Stomach"}, function(v) end)
-
--- VISUALS TAB
-local vis    = win:Tab("Visuals")
-local espSec = vis:Section("ESP")
-local espTog  = espSec:Toggle("Enable ESP",  function(v) end)
-local boxTog  = espSec:Toggle("Box ESP",     function(v) end)
-local nameTog = espSec:Toggle("Name Tags",   function(v) end)
-local hpTog   = espSec:Toggle("Health Bar",  function(v) end)
-local distSl  = espSec:Slider("Distance", 50, 3000, 600, function(v) end, 10)
-espSec:Label("ESP only shows players in range.", C.T_DIM)
-
-local chamSec = vis:Section("Chams")
-local chamTog = chamSec:Toggle("Enable Chams", function(v) end)
-local chamDd  = chamSec:Dropdown("Style", {"Flat","Wireframe","Neon","Glass"}, function(v) end)
-chamDd:Set("Flat")
-
--- MOVEMENT TAB
-local move   = win:Tab("Movement")
-local spdSec = move:Section("Speed")
-local spdTog = spdSec:ToggleBind("Speed Hack", Enum.KeyCode.G, function(v) end)
-local spdSl  = spdSec:Slider("Walk Speed", 16, 250, 60, function(v)
-    local h = game.Players.LocalPlayer.Character
-        and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid")
-    if h and spdTog:Get() then h.WalkSpeed = v end
-end, 1)
-
-local jmpSec = move:Section("Jump")
-local jmpTog = jmpSec:Toggle("High Jump", function(v) end)
-local jmpSl  = jmpSec:Slider("Jump Power", 50, 500, 50, function(v) end, 1)
-local ncTog  = jmpSec:ToggleBind("Noclip", Enum.KeyCode.V, function(v) end)
-
--- MISC TAB
-local misc   = win:Tab("Misc")
-local util   = misc:Section("Utility")
-local afkTog = util:Toggle("Anti-AFK", function(v) end)
-util:Button("Rejoin", function()
-    Alter:Prompt({Title="Rejoin", Message="Reconnect?", YesText="Yes", NoText="No",
-        Yes=function()
-            game:GetService("TeleportService"):Teleport(game.PlaceId, game.Players.LocalPlayer)
-        end})
-end)
-
--- CONFIG TAB
-local cfgTab = win:Tab("Config")
-local cfgSec = cfgTab:Section("Manager")
-local cfgName = "default"
-
--- Safe Native Textbox Input Field
-local nameInput = cfgSec:Input("Config Name", "default", function(text)
-    cfgName = text
-end)
-
-local cfgListDd = cfgSec:Dropdown("Saved Profiles", Cfg:List(), function(v)
-    cfgName = v
-    nameInput:Set(v)
-    Alter:Notify({Title="Config", Message='Selected: '..v, Duration=2})
-end)
-
-cfgSec:Separator()
-
-cfgSec:Button("Refresh Profiles", function()
-    cfgListDd:Refresh(Cfg:List(), false)
-end)
-cfgSec:Button("Save Profile", function()
-    local ok, e = Cfg:Save(cfgName)
-    cfgListDd:Refresh(Cfg:List(), false)
-    Alter:Notify({Title="Config Manager",
-        Message=ok and ("Saved: "..cfgName) or ("Failed: "..tostring(e)), Duration=2.5})
-end)
-cfgSec:Button("Load Profile", function()
-    Alter:Notify({Title="Config Manager",
-        Message=Cfg:Load(cfgName) and ("Loaded: "..cfgName) or "Not found.", Duration=2.5})
-end)
-cfgSec:Button("Delete Profile", function()
-    Alter:Prompt({Title="Delete Profile", Message='Delete "'..cfgName..'"?',
-        YesText="Delete", NoText="Cancel",
-        Yes=function()
-            Cfg:Delete(cfgName); cfgName="default"
-            cfgListDd:Refresh(Cfg:List(), false)
-            Alter:Notify({Title="Config Manager", Message="Deleted.", Duration=2})
-        end})
-end)
-
-local autoSec = cfgTab:Section("Auto Load Profiles")
-autoSec:Label("Current PlaceId: " .. game.PlaceId, C.T_SEC)
-autoSec:Label("Current GameId:  " .. game.GameId,  C.T_SEC)
-autoSec:Separator()
-autoSec:Button("Save profile as PlaceId", function()
-    local ok = Cfg:Save(tostring(game.PlaceId))
-    cfgListDd:Refresh(Cfg:List(), false)
-    Alter:Notify({Title="AutoLoader", Message=ok and "Config Saved!" or "Failed.", Duration=2})
-end)
-autoSec:Button("Save profile as GameId", function()
-    local ok = Cfg:Save(tostring(game.GameId))
-    cfgListDd:Refresh(Cfg:List(), false)
-    Alter:Notify({Title="AutoLoader", Message=ok and "Config Saved!" or "Failed.", Duration=2})
-end)
-
--- Default settings setup on runtime delay
-task.delay(0.9, function()
-    aimTog:Set(false); trigTog:Set(false); silTog:Set(false)
-    espTog:Set(true);  boxTog:Set(true);   nameTog:Set(true); hpTog:Set(false)
-    chamTog:Set(false); spdTog:Set(false); jmpTog:Set(false); ncTog:Set(false)
-    afkTog:Set(true)
-    boneDd:Set("Head"); chamDd:Set("Flat")
-    hitDd:Set({"Head","Chest"})
-    fovSl:Set(90); smSl:Set(20); delaySl:Set(60)
-    distSl:Set(600); spdSl:Set(60); jmpSl:Set(150)
-
-    Alter:Notify({Title="System Loaded", Message="ALTER Premium ready.", Duration=3})
-end)
+return AlterLib
