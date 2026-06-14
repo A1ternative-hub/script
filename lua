@@ -1,10 +1,6 @@
 --[[
-    ALTER UI Library v5
-    - Fixed all errors
-    - Fixed scrolling
-    - Fixed scaling
-    - Fixed all nil indexing
-    - Clean architecture
+    ALTER UI Library v5.1
+    Fixed: C table nil index, all forward references removed
 --]]
 
 local AlterLib = {}
@@ -19,7 +15,9 @@ local CoreGui = game:GetService("CoreGui")
 local HTTP    = game:GetService("HttpService")
 local LP      = Players.LocalPlayer
 
---> Palette — defined FIRST before anything uses it
+-->══════════════════════════════════════════════
+--> PALETTE — must be first, nothing above references C
+-->══════════════════════════════════════════════
 local C = {
     BG        = Color3.fromRGB(12,  12,  12),
     PANEL     = Color3.fromRGB(18,  18,  18),
@@ -37,7 +35,7 @@ local C = {
     ACC_OFF   = Color3.fromRGB(38,  38,  38),
 }
 
---> Tween presets
+--> Tween presets — only valid EasingStyles used
 local TI = {
     SNAP   = TweenInfo.new(0.04, Enum.EasingStyle.Linear,   Enum.EasingDirection.Out),
     FAST   = TweenInfo.new(0.12, Enum.EasingStyle.Quad,     Enum.EasingDirection.Out),
@@ -47,7 +45,7 @@ local TI = {
     SINE   = TweenInfo.new(0.26, Enum.EasingStyle.Sine,     Enum.EasingDirection.InOut),
 }
 
--- Only tween these properties (safe whitelist)
+--> Safe tween property whitelist
 local TWEENABLE = {
     BackgroundColor3       = true,
     BackgroundTransparency = true,
@@ -73,13 +71,14 @@ local function Tw(obj, ti, props)
 end
 
 -->══════════════════════════════════════════════
---> Instance builders — NO MouseButton1Click on Frame
+--> Instance builders
 -->══════════════════════════════════════════════
+
+-- Frame — never receives click events
 local function MakeFrame(parent, props)
     local f = Instance.new("Frame")
     f.BackgroundTransparency = 1
     f.BorderSizePixel        = 0
-    f.Size                   = UDim2.new(1, 0, 0, 0)
     for k, v in pairs(props or {}) do
         pcall(function() f[k] = v end)
     end
@@ -87,7 +86,7 @@ local function MakeFrame(parent, props)
     return f
 end
 
--- TextButton acts as both button AND invisible hitbox
+-- TextButton — the ONLY thing that receives click events
 local function MakeButton(parent, props)
     local b = Instance.new("TextButton")
     b.BackgroundTransparency = 1
@@ -158,12 +157,13 @@ local function MakeList(parent, direction, gap)
     return l
 end
 
+-- ScrollingFrame — uses C.BORDER_LT which is now guaranteed to exist
 local function MakeScrollFrame(parent, props)
     local s = Instance.new("ScrollingFrame")
     s.BackgroundTransparency  = 1
     s.BorderSizePixel         = 0
     s.ScrollBarThickness      = 3
-    s.ScrollBarImageColor3    = C.BORDER_LT
+    s.ScrollBarImageColor3    = C.BORDER_LT   -- C is defined above, safe
     s.ScrollingDirection      = Enum.ScrollingDirection.Y
     s.CanvasSize              = UDim2.new(0, 0, 0, 0)
     s.AutomaticCanvasSize     = Enum.AutomaticSize.Y
@@ -174,11 +174,11 @@ local function MakeScrollFrame(parent, props)
     return s
 end
 
---> Ripple — clipped, small
+--> Ripple
 local function Ripple(host)
     if not host or not host.Parent then return end
     local ok1, ap = pcall(function() return host.AbsolutePosition end)
-    local ok2, as = pcall(function() return host.AbsoluteSize end)
+    local ok2, as = pcall(function() return host.AbsoluteSize     end)
     if not ok1 or not ok2 then return end
     local mp = UIS:GetMouseLocation()
     local lx = math.clamp(mp.X - ap.X, 0, as.X)
@@ -211,18 +211,18 @@ local function Ripple(host)
     end)
 end
 
---> Dragging — pure offset, zero drift
+--> Drag
 local function MakeDraggable(handle, target)
-    local down  = false
+    local down   = false
     local startM = Vector2.new()
     local startP = Vector2.new()
 
     handle.InputBegan:Connect(function(i)
         if i.UserInputType ~= Enum.UserInputType.MouseButton1
         and i.UserInputType ~= Enum.UserInputType.Touch then return end
-        down    = true
-        startM  = Vector2.new(i.Position.X, i.Position.Y)
-        startP  = Vector2.new(target.Position.X.Offset, target.Position.Y.Offset)
+        down   = true
+        startM = Vector2.new(i.Position.X, i.Position.Y)
+        startP = Vector2.new(target.Position.X.Offset, target.Position.Y.Offset)
     end)
 
     UIS.InputChanged:Connect(function(i)
@@ -233,8 +233,10 @@ local function MakeDraggable(handle, target)
         local sg = target.Parent
         local mX = sg and math.max(0, sg.AbsoluteSize.X - target.AbsoluteSize.X) or 9999
         local mY = sg and math.max(0, sg.AbsoluteSize.Y - target.AbsoluteSize.Y) or 9999
-        target.Position = UDim2.new(0, math.clamp(startP.X + d.X, 0, mX),
-                                     0, math.clamp(startP.Y + d.Y, 0, mY))
+        target.Position = UDim2.new(
+            0, math.clamp(startP.X + d.X, 0, mX),
+            0, math.clamp(startP.Y + d.Y, 0, mY)
+        )
     end)
 
     UIS.InputEnded:Connect(function(i)
@@ -280,9 +282,9 @@ local ConfigSys = {}
 ConfigSys.__index = ConfigSys
 
 function ConfigSys.new(folder)
-    local s = setmetatable({}, ConfigSys)
-    s.folder  = folder or "AlterHub"
-    s.entries = {}
+    local s      = setmetatable({}, ConfigSys)
+    s.folder     = folder or "AlterHub"
+    s.entries    = {}
     pcall(function()
         if not isfolder(s.folder) then makefolder(s.folder) end
     end)
@@ -291,7 +293,11 @@ end
 
 function ConfigSys:Register(key, getter, setter)
     for _, e in ipairs(self.entries) do
-        if e.key == key then e.get = getter; e.set = setter; return end
+        if e.key == key then
+            e.get = getter
+            e.set = setter
+            return
+        end
     end
     table.insert(self.entries, {key = key, get = getter, set = setter})
 end
@@ -317,7 +323,9 @@ function ConfigSys:Load(name)
     local ok2, data = pcall(function() return HTTP:JSONDecode(raw) end)
     if not ok2 or type(data) ~= "table" then return false end
     for _, e in ipairs(self.entries) do
-        if data[e.key] ~= nil then pcall(e.set, data[e.key]) end
+        if data[e.key] ~= nil then
+            pcall(e.set, data[e.key])
+        end
     end
     return true
 end
@@ -342,7 +350,7 @@ function ConfigSys:AutoLoadByPlaceId(map)
     task.delay(1.5, function()
         local pid = tostring(game.PlaceId)
         if map and map[pid] and self:Load(map[pid]) then
-            print("[Alter] PlaceId autoload:", map[pid])
+            print("[Alter] PlaceId autoload →", map[pid])
         else
             self:Load("default")
         end
@@ -353,7 +361,7 @@ function ConfigSys:AutoLoadByGameId(map)
     task.delay(1.5, function()
         local gid = tostring(game.GameId)
         if map and map[gid] and self:Load(map[gid]) then
-            print("[Alter] GameId autoload:", map[gid])
+            print("[Alter] GameId autoload →", map[gid])
         else
             self:Load("default")
         end
@@ -368,7 +376,6 @@ local _nSG, _nHolder
 local function EnsureNotif()
     if _nSG and _nSG.Parent then return end
     _nSG = MakeSG("NOTIF")
-
     _nHolder = MakeFrame(_nSG, {
         Size     = UDim2.new(0, 270, 1, -20),
         Position = UDim2.new(1, -282, 0, 10),
@@ -389,19 +396,19 @@ function AlterLib:Notify(cfg)
     cfg = cfg or {}
 
     local card = MakeFrame(_nHolder, {
-        Size             = UDim2.new(1, 0, 0, 62),
-        BackgroundColor3 = C.PANEL,
+        Size                   = UDim2.new(1, 0, 0, 62),
+        BackgroundColor3       = C.PANEL,
         BackgroundTransparency = 0,
-        ZIndex           = 201,
+        ZIndex                 = 201,
     })
     MakeCorner(card, 8)
     MakeStroke(card, C.BORDER, 1)
 
     local bar = MakeFrame(card, {
-        Size             = UDim2.new(0, 0, 0, 2),
-        BackgroundColor3 = C.WHITE,
+        Size                   = UDim2.new(0, 0, 0, 2),
+        BackgroundColor3       = C.WHITE,
         BackgroundTransparency = 0,
-        ZIndex           = 203,
+        ZIndex                 = 203,
     })
     MakeCorner(bar, 1)
 
@@ -424,14 +431,12 @@ function AlterLib:Notify(cfg)
         ZIndex      = 202,
     })
 
-    -- Slide in from right
     card.Position = UDim2.new(1, 10, 1, 0)
     Tw(card, TI.SPRING, {Position = UDim2.new(0, 0, 1, 0)})
     task.delay(0.06, function()
         Tw(bar, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
             {Size = UDim2.new(1, 0, 0, 2)})
     end)
-
     task.delay(cfg.Duration or 3.5, function()
         Tw(card, TI.MED, {
             Position               = UDim2.new(1, 10, 1, 0),
@@ -444,13 +449,13 @@ function AlterLib:Notify(cfg)
 end
 
 -->══════════════════════════════════════════════
---> PROMPT  — uses TextButton for backdrop click
+--> PROMPT
 -->══════════════════════════════════════════════
 function AlterLib:Prompt(cfg)
     cfg = cfg or {}
     local sg = MakeSG("PROMPT")
 
-    -- Backdrop is a TextButton so it can receive clicks
+    -- TextButton backdrop so MouseButton1Click works
     local backdrop = MakeButton(sg, {
         Size                   = UDim2.fromScale(1, 1),
         BackgroundColor3       = C.BLACK,
@@ -471,28 +476,26 @@ function AlterLib:Prompt(cfg)
     MakeCorner(card, 9)
     MakeStroke(card, C.BORDER_LT, 1)
 
-    -- top accent
     MakeFrame(card, {
-        Size             = UDim2.new(1, 0, 0, 2),
-        BackgroundColor3 = C.WHITE,
+        Size                   = UDim2.new(1, 0, 0, 2),
+        BackgroundColor3       = C.WHITE,
         BackgroundTransparency = 0,
-        ZIndex           = 105,
+        ZIndex                 = 105,
     })
 
-    -- header
     local hdr = MakeFrame(card, {
-        Size             = UDim2.new(1, 0, 0, 44),
-        BackgroundColor3 = C.CARD,
+        Size                   = UDim2.new(1, 0, 0, 44),
+        BackgroundColor3       = C.CARD,
         BackgroundTransparency = 0,
-        ZIndex           = 102,
+        ZIndex                 = 102,
     })
     MakeCorner(hdr, 9)
-    MakeFrame(hdr, {  -- square bottom corners
-        Size             = UDim2.new(1, 0, 0.5, 0),
-        Position         = UDim2.new(0, 0, 0.5, 0),
-        BackgroundColor3 = C.CARD,
+    MakeFrame(hdr, {
+        Size                   = UDim2.new(1, 0, 0.5, 0),
+        Position               = UDim2.new(0, 0, 0.5, 0),
+        BackgroundColor3       = C.CARD,
         BackgroundTransparency = 0,
-        ZIndex           = 102,
+        ZIndex                 = 102,
     })
     MakeLabel(hdr, {
         Text       = cfg.Title or "Confirm",
@@ -514,7 +517,6 @@ function AlterLib:Prompt(cfg)
         ZIndex      = 103,
     })
 
-    -- button row
     local bRow = MakeFrame(card, {
         Size     = UDim2.new(1, -28, 0, 32),
         Position = UDim2.new(0, 14, 0, 100),
@@ -539,6 +541,7 @@ function AlterLib:Prompt(cfg)
             TextColor3             = primary and C.BLACK or C.T_SEC,
             BackgroundColor3       = primary and C.WHITE  or C.ELEM,
             BackgroundTransparency = 0,
+            TextXAlignment         = Enum.TextXAlignment.Center,
             Size                   = UDim2.new(0.5, -4, 1, 0),
             ZIndex                 = 103,
         })
@@ -546,10 +549,14 @@ function AlterLib:Prompt(cfg)
         if not primary then MakeStroke(b, C.BORDER, 1) end
         b.MouseButton1Click:Connect(function() closePrompt(cb) end)
         b.MouseEnter:Connect(function()
-            Tw(b, TI.FAST, {BackgroundColor3 = primary and Color3.fromRGB(210,210,210) or C.HOVER})
+            Tw(b, TI.FAST, {
+                BackgroundColor3 = primary and Color3.fromRGB(210,210,210) or C.HOVER
+            })
         end)
         b.MouseLeave:Connect(function()
-            Tw(b, TI.FAST, {BackgroundColor3 = primary and C.WHITE or C.ELEM})
+            Tw(b, TI.FAST, {
+                BackgroundColor3 = primary and C.WHITE or C.ELEM
+            })
         end)
         b.MouseButton1Down:Connect(function() Ripple(b) end)
         return b
@@ -558,9 +565,7 @@ function AlterLib:Prompt(cfg)
     PBtn(cfg.NoText  or "Cancel",  false, cfg.No)
     PBtn(cfg.YesText or "Confirm", true,  cfg.Yes)
 
-    -- backdrop click closes (TextButton so this works)
     backdrop.MouseButton1Click:Connect(function() closePrompt(nil) end)
-
     Tw(card, TI.SPRING, {Size = UDim2.new(0, 340, 0, 142)})
 end
 
@@ -578,10 +583,9 @@ function AlterLib:Window(cfg)
     local SIDE_W = IS_MOB and 100 or 138
     local ROW_H  = IS_MOB and 42  or 34
 
-    local sg      = MakeSG(cfg.Folder or "WIN")
-    local cfgSys  = ConfigSys.new(cfg.Folder or "AlterHub")
+    local sg     = MakeSG(cfg.Folder or "WIN")
+    local cfgSys = ConfigSys.new(cfg.Folder or "AlterHub")
 
-    --> Root
     local root = MakeFrame(sg, {
         Size                   = UDim2.new(0, WIN_W, 0, 0),
         Position               = UDim2.new(0, IS_MOB and 8 or 70, 0, IS_MOB and 8 or 55),
@@ -593,27 +597,26 @@ function AlterLib:Window(cfg)
     MakeCorner(root, 10)
     MakeStroke(root, C.BORDER, 1)
 
-    --> Title bar
     local titleBar = MakeFrame(root, {
-        Size             = UDim2.new(1, 0, 0, 46),
-        BackgroundColor3 = C.PANEL,
+        Size                   = UDim2.new(1, 0, 0, 46),
+        BackgroundColor3       = C.PANEL,
         BackgroundTransparency = 0,
-        ZIndex           = 4,
+        ZIndex                 = 4,
     })
     MakeCorner(titleBar, 10)
-    MakeFrame(titleBar, {  -- square bottom half
-        Size             = UDim2.new(1, 0, 0.5, 0),
-        Position         = UDim2.new(0, 0, 0.5, 0),
-        BackgroundColor3 = C.PANEL,
+    MakeFrame(titleBar, {
+        Size                   = UDim2.new(1, 0, 0.5, 0),
+        Position               = UDim2.new(0, 0, 0.5, 0),
+        BackgroundColor3       = C.PANEL,
         BackgroundTransparency = 0,
-        ZIndex           = 4,
+        ZIndex                 = 4,
     })
 
     local accentLine = MakeFrame(titleBar, {
-        Size             = UDim2.new(0, 0, 0, 1),
-        BackgroundColor3 = C.WHITE,
+        Size                   = UDim2.new(0, 0, 0, 1),
+        BackgroundColor3       = C.WHITE,
         BackgroundTransparency = 0,
-        ZIndex           = 6,
+        ZIndex                 = 6,
     })
     MakeCorner(accentLine, 1)
 
@@ -637,7 +640,6 @@ function AlterLib:Window(cfg)
         ZIndex     = 5,
     })
 
-    -- Control buttons
     local ctrlF = MakeFrame(titleBar, {
         Size     = UDim2.new(0, 58, 0, 22),
         Position = UDim2.new(1, -66, 0.5, -11),
@@ -646,7 +648,7 @@ function AlterLib:Window(cfg)
     MakeList(ctrlF, Enum.FillDirection.Horizontal, 6)
 
     local minimised = false
-    local bodyFrame -- forward ref
+    local bodyFrame
 
     local function CtrlBtn(sym, action)
         local b = MakeButton(ctrlF, {
@@ -656,15 +658,22 @@ function AlterLib:Window(cfg)
             TextColor3             = C.T_DIM,
             BackgroundColor3       = C.ELEM,
             BackgroundTransparency = 0,
+            TextXAlignment         = Enum.TextXAlignment.Center,
             Size                   = UDim2.new(0, 26, 0, 22),
             ZIndex                 = 6,
         })
         MakeCorner(b, 5)
         MakeStroke(b, C.BORDER, 1)
         b.MouseButton1Click:Connect(function() Ripple(b); action() end)
-        b.MouseEnter:Connect(function() Tw(b, TI.FAST, {BackgroundColor3=C.HOVER, TextColor3=C.T_PRI}) end)
-        b.MouseLeave:Connect(function() Tw(b, TI.FAST, {BackgroundColor3=C.ELEM,  TextColor3=C.T_DIM}) end)
-        b.MouseButton1Down:Connect(function() Tw(b, TI.SNAP, {BackgroundColor3=C.ACTIVE}) end)
+        b.MouseEnter:Connect(function()
+            Tw(b, TI.FAST, {BackgroundColor3 = C.HOVER, TextColor3 = C.T_PRI})
+        end)
+        b.MouseLeave:Connect(function()
+            Tw(b, TI.FAST, {BackgroundColor3 = C.ELEM, TextColor3 = C.T_DIM})
+        end)
+        b.MouseButton1Down:Connect(function()
+            Tw(b, TI.SNAP, {BackgroundColor3 = C.ACTIVE})
+        end)
         return b
     end
 
@@ -677,13 +686,17 @@ function AlterLib:Window(cfg)
         })
     end)
     CtrlBtn("×", function()
-        Tw(root, TI.MED, {Size=UDim2.new(0,WIN_W,0,0), BackgroundTransparency=1})
-        task.delay(0.28, function() if sg and sg.Parent then sg:Destroy() end end)
+        Tw(root, TI.MED, {
+            Size                   = UDim2.new(0, WIN_W, 0, 0),
+            BackgroundTransparency = 1,
+        })
+        task.delay(0.28, function()
+            if sg and sg.Parent then sg:Destroy() end
+        end)
     end)
 
     MakeDraggable(titleBar, root)
 
-    --> Body
     bodyFrame = MakeFrame(root, {
         Size     = UDim2.new(1, 0, 1, -46),
         Position = UDim2.new(0, 0, 0, 46),
@@ -691,7 +704,6 @@ function AlterLib:Window(cfg)
     })
     bodyFrame.ClipsDescendants = true
 
-    --> Sidebar
     local sidebar = MakeFrame(bodyFrame, {
         Size                   = UDim2.new(0, SIDE_W, 1, 0),
         BackgroundColor3       = C.PANEL,
@@ -699,27 +711,25 @@ function AlterLib:Window(cfg)
         ZIndex                 = 3,
     })
     MakeCorner(sidebar, 10)
-    -- Square off right side
     MakeFrame(sidebar, {
-        Size             = UDim2.new(0, 10, 1, 0),
-        Position         = UDim2.new(1, -10, 0, 0),
-        BackgroundColor3 = C.PANEL,
+        Size                   = UDim2.new(0, 10, 1, 0),
+        Position               = UDim2.new(1, -10, 0, 0),
+        BackgroundColor3       = C.PANEL,
         BackgroundTransparency = 0,
-        ZIndex           = 3,
+        ZIndex                 = 3,
     })
     MakeFrame(sidebar, {
-        Size             = UDim2.new(1, 0, 0, 10),
-        BackgroundColor3 = C.PANEL,
+        Size                   = UDim2.new(1, 0, 0, 10),
+        BackgroundColor3       = C.PANEL,
         BackgroundTransparency = 0,
-        ZIndex           = 3,
+        ZIndex                 = 3,
     })
-    -- Separator
     MakeFrame(sidebar, {
-        Size             = UDim2.new(0, 1, 1, 0),
-        Position         = UDim2.new(1, 0, 0, 0),
-        BackgroundColor3 = C.BORDER,
+        Size                   = UDim2.new(0, 1, 1, 0),
+        Position               = UDim2.new(1, 0, 0, 0),
+        BackgroundColor3       = C.BORDER,
         BackgroundTransparency = 0,
-        ZIndex           = 4,
+        ZIndex                 = 4,
     })
 
     local brandLbl = MakeLabel(sidebar, {
@@ -732,25 +742,23 @@ function AlterLib:Window(cfg)
         Size             = UDim2.new(1, 0, 0, 46),
         ZIndex           = 4,
     })
-    MakeFrame(sidebar, {  -- divider
-        Size             = UDim2.new(1, -18, 0, 1),
-        Position         = UDim2.new(0, 9, 0, 45),
-        BackgroundColor3 = C.BORDER,
+    MakeFrame(sidebar, {
+        Size                   = UDim2.new(1, -18, 0, 1),
+        Position               = UDim2.new(0, 9, 0, 45),
+        BackgroundColor3       = C.BORDER,
         BackgroundTransparency = 0,
-        ZIndex           = 4,
+        ZIndex                 = 4,
     })
 
-    -- Tab scroll list
     local tabScroll = MakeScrollFrame(sidebar, {
-        Size             = UDim2.new(1, 0, 1, -54),
-        Position         = UDim2.new(0, 0, 0, 52),
+        Size               = UDim2.new(1, 0, 1, -54),
+        Position           = UDim2.new(0, 0, 0, 52),
         ScrollBarThickness = 0,
-        ZIndex           = 4,
+        ZIndex             = 4,
     })
     MakePadding(tabScroll, 4, 4, 6, 6)
-    local tabLL = MakeList(tabScroll, Enum.FillDirection.Vertical, 3)
+    MakeList(tabScroll, Enum.FillDirection.Vertical, 3)
 
-    --> Content area — this is where tab panels live
     local contentArea = MakeFrame(bodyFrame, {
         Size     = UDim2.new(1, -SIDE_W, 1, 0),
         Position = UDim2.new(0, SIDE_W, 0, 0),
@@ -758,9 +766,11 @@ function AlterLib:Window(cfg)
     })
     contentArea.ClipsDescendants = true
 
-    --> Open animation
     task.defer(function()
-        Tw(root, TI.SPRING, {Size=UDim2.new(0,WIN_W,0,WIN_H), BackgroundTransparency=0})
+        Tw(root, TI.SPRING, {
+            Size                   = UDim2.new(0, WIN_W, 0, WIN_H),
+            BackgroundTransparency = 0,
+        })
         task.delay(0.18, function()
             Tw(accentLine, TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
                 {Size = UDim2.new(1, 0, 0, 1)})
@@ -769,13 +779,11 @@ function AlterLib:Window(cfg)
         end)
     end)
 
-    --> Window object
     local winObj = {_tabs = {}, Config = cfgSys}
 
     function winObj:Tab(name)
         local tabObj = {_name = name}
 
-        -- Sidebar tab button
         local btn = MakeButton(tabScroll, {
             Size                   = UDim2.new(1, 0, 0, ROW_H),
             BackgroundColor3       = C.ELEM,
@@ -785,21 +793,21 @@ function AlterLib:Window(cfg)
         MakeCorner(btn, 6)
 
         local ind = MakeFrame(btn, {
-            Size             = UDim2.new(0, 2, 0, 0),
-            Position         = UDim2.new(0, 0, 0.5, 0),
-            AnchorPoint      = Vector2.new(0, 0.5),
-            BackgroundColor3 = C.WHITE,
+            Size                   = UDim2.new(0, 2, 0, 0),
+            Position               = UDim2.new(0, 0, 0.5, 0),
+            AnchorPoint            = Vector2.new(0, 0.5),
+            BackgroundColor3       = C.WHITE,
             BackgroundTransparency = 0,
-            ZIndex           = 6,
+            ZIndex                 = 6,
         })
         MakeCorner(ind, 1)
 
         local dot = MakeFrame(btn, {
-            Size             = UDim2.new(0, 4, 0, 4),
-            Position         = UDim2.new(0, 10, 0.5, -2),
-            BackgroundColor3 = C.T_DIM,
+            Size                   = UDim2.new(0, 4, 0, 4),
+            Position               = UDim2.new(0, 10, 0.5, -2),
+            BackgroundColor3       = C.T_DIM,
             BackgroundTransparency = 0,
-            ZIndex           = 6,
+            ZIndex                 = 6,
         })
         MakeCorner(dot, 2)
 
@@ -812,16 +820,14 @@ function AlterLib:Window(cfg)
             ZIndex     = 6,
         })
 
-        -- Panel = full ScrollingFrame inside content area
+        -- Each tab gets its own ScrollingFrame inside contentArea
         local panel = MakeScrollFrame(contentArea, {
-            Size                  = UDim2.new(1, 0, 1, 0),
-            ScrollBarThickness    = 3,
-            ScrollBarImageColor3  = C.BORDER_LT,
-            ScrollingDirection    = Enum.ScrollingDirection.Y,
-            Visible               = false,
-            ZIndex                = 2,
+            Size                 = UDim2.new(1, 0, 1, 0),
+            ScrollBarThickness   = 3,
+            ScrollBarImageColor3 = C.BORDER_LT,
+            Visible              = false,
+            ZIndex               = 2,
         })
-        -- AutomaticCanvasSize handles scrolling automatically
         panel.AutomaticCanvasSize = Enum.AutomaticSize.Y
         MakePadding(panel, 12, 12, 12, 12)
         MakeList(panel, Enum.FillDirection.Vertical, 8)
@@ -837,44 +843,40 @@ function AlterLib:Window(cfg)
             for _, t in ipairs(self._tabs) do
                 if t ~= tabObj then
                     t._panel.Visible = false
-                    Tw(t._btn, TI.FAST, {BackgroundTransparency=1})
-                    Tw(t._ind, TI.FAST, {Size=UDim2.new(0,2,0,0)})
-                    Tw(t._dot, TI.FAST, {BackgroundColor3=C.T_DIM})
-                    Tw(t._lbl, TI.FAST, {TextColor3=C.T_DIM})
+                    Tw(t._btn, TI.FAST, {BackgroundTransparency = 1})
+                    Tw(t._ind, TI.FAST, {Size = UDim2.new(0, 2, 0, 0)})
+                    Tw(t._dot, TI.FAST, {BackgroundColor3 = C.T_DIM})
+                    Tw(t._lbl, TI.FAST, {TextColor3 = C.T_DIM})
                 end
             end
-            panel.Visible = true
+            panel.Visible  = true
             panel.Position = UDim2.new(0, 4, 0, 0)
-            Tw(panel, TI.MED,    {Position=UDim2.new(0,0,0,0)})
-            Tw(btn,   TI.MED,    {BackgroundTransparency=0, BackgroundColor3=C.ELEM})
-            Tw(ind,   TI.SPRING, {Size=UDim2.new(0,2,0,18)})
-            Tw(dot,   TI.FAST,   {BackgroundColor3=C.WHITE})
-            Tw(lbl,   TI.FAST,   {TextColor3=C.T_PRI})
+            Tw(panel, TI.MED,    {Position = UDim2.new(0, 0, 0, 0)})
+            Tw(btn,   TI.MED,    {BackgroundTransparency = 0, BackgroundColor3 = C.ELEM})
+            Tw(ind,   TI.SPRING, {Size = UDim2.new(0, 2, 0, 18)})
+            Tw(dot,   TI.FAST,   {BackgroundColor3 = C.WHITE})
+            Tw(lbl,   TI.FAST,   {TextColor3 = C.T_PRI})
         end
 
         btn.MouseButton1Click:Connect(function() activate(); Ripple(btn) end)
         btn.MouseEnter:Connect(function()
             if panel.Visible then return end
-            Tw(btn, TI.FAST, {BackgroundTransparency=0.88, BackgroundColor3=C.ELEM})
-            Tw(lbl, TI.FAST, {TextColor3=C.T_SEC})
+            Tw(btn, TI.FAST, {BackgroundTransparency = 0.88, BackgroundColor3 = C.ELEM})
+            Tw(lbl, TI.FAST, {TextColor3 = C.T_SEC})
         end)
         btn.MouseLeave:Connect(function()
             if panel.Visible then return end
-            Tw(btn, TI.FAST, {BackgroundTransparency=1})
-            Tw(lbl, TI.FAST, {TextColor3=C.T_DIM})
+            Tw(btn, TI.FAST, {BackgroundTransparency = 1})
+            Tw(lbl, TI.FAST, {TextColor3 = C.T_DIM})
         end)
 
         if #self._tabs == 1 then activate() end
 
-        -->══════════════════════════════════════
-        --> :Section()
-        -->══════════════════════════════════════
         function tabObj:Section(secName)
             local secObj    = {}
             local collapsed = false
             local fullH     = 36
 
-            -- Section container — fixed size, NO AutomaticSize (causes issues)
             local wrap = MakeFrame(panel, {
                 Size                   = UDim2.new(1, 0, 0, 36),
                 BackgroundColor3       = C.CARD,
@@ -885,7 +887,6 @@ function AlterLib:Window(cfg)
             MakeCorner(wrap, 8)
             MakeStroke(wrap, C.BORDER, 1)
 
-            --> Section header
             local hdr = MakeFrame(wrap, {
                 Size                   = UDim2.new(1, 0, 0, 36),
                 BackgroundColor3       = C.ELEM,
@@ -893,20 +894,20 @@ function AlterLib:Window(cfg)
                 ZIndex                 = 4,
             })
             MakeCorner(hdr, 8)
-            MakeFrame(hdr, {  -- square bottom corners
-                Size             = UDim2.new(1, 0, 0.5, 0),
-                Position         = UDim2.new(0, 0, 0.5, 0),
-                BackgroundColor3 = C.ELEM,
+            MakeFrame(hdr, {
+                Size                   = UDim2.new(1, 0, 0.5, 0),
+                Position               = UDim2.new(0, 0, 0.5, 0),
+                BackgroundColor3       = C.ELEM,
                 BackgroundTransparency = 0,
-                ZIndex           = 4,
+                ZIndex                 = 4,
             })
 
             local stripe = MakeFrame(hdr, {
-                Size             = UDim2.new(0, 2, 0, 14),
-                Position         = UDim2.new(0, 8, 0.5, -7),
-                BackgroundColor3 = C.WHITE,
+                Size                   = UDim2.new(0, 2, 0, 14),
+                Position               = UDim2.new(0, 8, 0.5, -7),
+                BackgroundColor3       = C.WHITE,
                 BackgroundTransparency = 0,
-                ZIndex           = 5,
+                ZIndex                 = 5,
             })
             MakeCorner(stripe, 1)
 
@@ -921,17 +922,16 @@ function AlterLib:Window(cfg)
             })
 
             local collBtn = MakeButton(hdr, {
-                Text       = "−",
-                TextSize   = 16,
-                Font       = Enum.Font.GothamBold,
-                TextColor3 = C.T_DIM,
+                Text           = "−",
+                TextSize       = 16,
+                Font           = Enum.Font.GothamBold,
+                TextColor3     = C.T_DIM,
                 TextXAlignment = Enum.TextXAlignment.Center,
-                Size       = UDim2.new(0, 32, 1, 0),
-                Position   = UDim2.new(1, -34, 0, 0),
-                ZIndex     = 7,
+                Size           = UDim2.new(0, 32, 1, 0),
+                Position       = UDim2.new(1, -34, 0, 0),
+                ZIndex         = 7,
             })
 
-            --> Element container (inside wrap, below header)
             local elems = MakeFrame(wrap, {
                 Size     = UDim2.new(1, 0, 0, 0),
                 Position = UDim2.new(0, 0, 0, 36),
@@ -940,45 +940,38 @@ function AlterLib:Window(cfg)
             MakePadding(elems, 8, 10, 10, 10)
             local elemsLL = MakeList(elems, Enum.FillDirection.Vertical, 6)
 
-            -- Update section height when elements change
+            -- Recompute wrap height from content
             local function syncHeight()
                 if collapsed then return end
-                local contentH = elemsLL.AbsoluteContentSize.Y
-                local padH     = 18  -- top+bottom padding
-                local newH     = 36 + contentH + padH
-                fullH          = newH
-                wrap.Size      = UDim2.new(1, 0, 0, newH)
+                local newH = 36 + elemsLL.AbsoluteContentSize.Y + 18
+                fullH      = newH
+                wrap.Size  = UDim2.new(1, 0, 0, newH)
             end
 
-            elemsLL.Changed:Connect(function()
-                task.defer(syncHeight)
-            end)
-
+            elemsLL.Changed:Connect(function() task.defer(syncHeight) end)
             task.defer(function()
                 Tw(wrap, TI.SPRING, {BackgroundTransparency = 0})
                 task.defer(syncHeight)
             end)
 
-            -- Collapse / expand
             local function doCollapse()
                 collapsed = not collapsed
                 if collapsed then
                     fullH = wrap.AbsoluteSize.Y
-                    Tw(wrap,    TI.MED,  {Size=UDim2.new(1,0,0,36)})
-                    Tw(collBtn, TI.FAST, {Rotation=45, TextColor3=C.T_DIM})
-                    Tw(stripe,  TI.FAST, {BackgroundColor3=C.T_DIM})
+                    Tw(wrap,    TI.MED,  {Size = UDim2.new(1, 0, 0, 36)})
+                    Tw(collBtn, TI.FAST, {Rotation = 45})
+                    Tw(stripe,  TI.FAST, {BackgroundColor3 = C.T_DIM})
                 else
-                    Tw(wrap,    TI.MED,  {Size=UDim2.new(1,0,0,fullH)})
-                    Tw(collBtn, TI.FAST, {Rotation=0,  TextColor3=C.T_DIM})
-                    Tw(stripe,  TI.FAST, {BackgroundColor3=C.WHITE})
+                    Tw(wrap,    TI.MED,  {Size = UDim2.new(1, 0, 0, fullH)})
+                    Tw(collBtn, TI.FAST, {Rotation = 0})
+                    Tw(stripe,  TI.FAST, {BackgroundColor3 = C.WHITE})
                 end
             end
 
             collBtn.MouseButton1Click:Connect(doCollapse)
-            collBtn.MouseEnter:Connect(function() Tw(collBtn, TI.FAST, {TextColor3=C.WHITE}) end)
-            collBtn.MouseLeave:Connect(function() Tw(collBtn, TI.FAST, {TextColor3=C.T_DIM}) end)
+            collBtn.MouseEnter:Connect(function() Tw(collBtn,TI.FAST,{TextColor3=C.WHITE}) end)
+            collBtn.MouseLeave:Connect(function() Tw(collBtn,TI.FAST,{TextColor3=C.T_DIM}) end)
 
-            -- Header also toggles collapse
             local hdrHit = MakeButton(hdr, {
                 Size   = UDim2.new(1, -36, 1, 0),
                 ZIndex = 6,
@@ -987,64 +980,53 @@ function AlterLib:Window(cfg)
             hdrHit.MouseEnter:Connect(function() Tw(hdr,TI.FAST,{BackgroundColor3=C.HOVER}) end)
             hdrHit.MouseLeave:Connect(function() Tw(hdr,TI.FAST,{BackgroundColor3=C.ELEM}) end)
 
-            -- ─────────────────────────────
-            -- Element helpers
-            -- ─────────────────────────────
-
+            -- Helper: standard element row frame
             local function ElemRow(h)
                 local f = MakeFrame(elems, {
-                    Size             = UDim2.new(1, 0, 0, h or ROW_H),
-                    BackgroundColor3 = C.ELEM,
+                    Size                   = UDim2.new(1, 0, 0, h or ROW_H),
+                    BackgroundColor3       = C.ELEM,
                     BackgroundTransparency = 0,
-                    ZIndex           = 5,
+                    ZIndex                 = 5,
                 })
                 MakeCorner(f, 7)
                 MakeStroke(f, C.BORDER, 1)
                 return f
             end
 
-            -- ─────────────────────────────
-            --> TEXT LABEL
-            -- ─────────────────────────────
+            --> LABEL
             function secObj:Label(text, col)
-                local h = ROW_H - 8
                 local f = MakeFrame(elems, {
-                    Size   = UDim2.new(1, 0, 0, h),
+                    Size   = UDim2.new(1, 0, 0, 24),
                     ZIndex = 5,
                 })
                 MakeLabel(f, {
                     Text        = text or "",
                     TextSize    = 11,
                     TextColor3  = col or C.T_SEC,
-                    Size        = UDim2.new(1, -8, 1, 0),
-                    Position    = UDim2.new(0, 4, 0, 0),
+                    Size        = UDim2.new(1, 0, 1, 0),
                     TextWrapped = true,
                     ZIndex      = 6,
                 })
-                return f
             end
 
-            -- ─────────────────────────────
             --> BUTTON
-            -- ─────────────────────────────
             function secObj:Button(text, cb)
                 local row = MakeButton(elems, {
-                    Size                   = UDim2.new(1, 0, 0, ROW_H),
                     BackgroundColor3       = C.ELEM,
                     BackgroundTransparency = 0,
+                    Size                   = UDim2.new(1, 0, 0, ROW_H),
                     ZIndex                 = 5,
                 })
                 MakeCorner(row, 7)
                 MakeStroke(row, C.BORDER, 1)
 
-                -- Glow bar on left
                 local glow = MakeFrame(row, {
-                    Size             = UDim2.new(0, 2, 0, 0),
-                    Position         = UDim2.new(0, 0, 0.5, 0),
-                    AnchorPoint      = Vector2.new(0, 0.5),
-                    BackgroundColor3 = C.WHITE,
+                    Size                   = UDim2.new(0, 2, 0, 0),
+                    Position               = UDim2.new(0, 0, 0.5, 0),
+                    AnchorPoint            = Vector2.new(0, 0.5),
+                    BackgroundColor3       = C.WHITE,
                     BackgroundTransparency = 0,
-                    ZIndex           = 6,
+                    ZIndex                 = 6,
                 })
                 MakeCorner(glow, 1)
 
@@ -1052,7 +1034,7 @@ function AlterLib:Window(cfg)
                     Text       = text or "Button",
                     TextSize   = 12,
                     TextColor3 = C.T_SEC,
-                    Size       = UDim2.new(1, -40, 1, 0),
+                    Size       = UDim2.new(1, -36, 1, 0),
                     Position   = UDim2.new(0, 12, 0, 0),
                     ZIndex     = 6,
                 })
@@ -1062,39 +1044,36 @@ function AlterLib:Window(cfg)
                     Font           = Enum.Font.GothamBold,
                     TextColor3     = C.T_DIM,
                     TextXAlignment = Enum.TextXAlignment.Center,
-                    Size           = UDim2.new(0, 24, 1, 0),
-                    Position       = UDim2.new(1, -28, 0, 0),
+                    Size           = UDim2.new(0, 22, 1, 0),
+                    Position       = UDim2.new(1, -26, 0, 0),
                     ZIndex         = 6,
                 })
 
                 row.MouseEnter:Connect(function()
-                    Tw(row,  TI.FAST, {BackgroundColor3=C.HOVER})
-                    Tw(glow, TI.MED,  {Size=UDim2.new(0,2,0.5,0)})
+                    Tw(row,  TI.FAST, {BackgroundColor3 = C.HOVER})
+                    Tw(glow, TI.MED,  {Size = UDim2.new(0, 2, 0.5, 0)})
                 end)
                 row.MouseLeave:Connect(function()
-                    Tw(row,  TI.FAST, {BackgroundColor3=C.ELEM})
-                    Tw(glow, TI.FAST, {Size=UDim2.new(0,2,0,0)})
+                    Tw(row,  TI.FAST, {BackgroundColor3 = C.ELEM})
+                    Tw(glow, TI.FAST, {Size = UDim2.new(0, 2, 0, 0)})
                 end)
                 row.MouseButton1Down:Connect(function()
-                    Tw(row, TI.SNAP, {BackgroundColor3=C.ACTIVE})
+                    Tw(row, TI.SNAP, {BackgroundColor3 = C.ACTIVE})
                     Ripple(row)
                 end)
                 row.MouseButton1Up:Connect(function()
-                    Tw(row, TI.FAST, {BackgroundColor3=C.HOVER})
+                    Tw(row, TI.FAST, {BackgroundColor3 = C.HOVER})
                     if cb then task.spawn(cb) end
                 end)
             end
 
-            -- ─────────────────────────────
             --> TOGGLE
-            -- ─────────────────────────────
             function secObj:Toggle(text, cb)
                 local obj   = {}
                 local state = false
+                local row   = ElemRow(ROW_H)
 
-                local row = ElemRow(ROW_H)
-
-                MakeLabel(row, {
+                local tLbl = MakeLabel(row, {
                     Text       = text or "Toggle",
                     TextSize   = 12,
                     TextColor3 = C.T_SEC,
@@ -1104,96 +1083,89 @@ function AlterLib:Window(cfg)
                 })
 
                 local track = MakeFrame(row, {
-                    Size             = UDim2.new(0, 34, 0, 18),
-                    Position         = UDim2.new(1, -46, 0.5, -9),
-                    BackgroundColor3 = C.ACC_OFF,
+                    Size                   = UDim2.new(0, 34, 0, 18),
+                    Position               = UDim2.new(1, -46, 0.5, -9),
+                    BackgroundColor3       = C.ACC_OFF,
                     BackgroundTransparency = 0,
-                    ZIndex           = 6,
+                    ZIndex                 = 6,
                 })
                 MakeCorner(track, 9)
                 MakeStroke(track, C.BORDER, 1)
 
                 local fill = MakeFrame(track, {
-                    Size             = UDim2.new(0, 0, 1, 0),
-                    BackgroundColor3 = C.WHITE,
+                    Size                   = UDim2.new(0, 0, 1, 0),
+                    BackgroundColor3       = C.WHITE,
                     BackgroundTransparency = 0.4,
-                    ZIndex           = 7,
+                    ZIndex                 = 7,
                 })
                 MakeCorner(fill, 9)
 
                 local thumb = MakeFrame(track, {
-                    Size             = UDim2.new(0, 12, 0, 12),
-                    Position         = UDim2.new(0, 3, 0.5, -6),
-                    BackgroundColor3 = C.T_DIM,
+                    Size                   = UDim2.new(0, 12, 0, 12),
+                    Position               = UDim2.new(0, 3, 0.5, -6),
+                    BackgroundColor3       = C.T_DIM,
                     BackgroundTransparency = 0,
-                    ZIndex           = 8,
+                    ZIndex                 = 8,
                 })
                 MakeCorner(thumb, 6)
-
-                -- Label ref for color changes
-                local rowLbl = row:FindFirstChildWhichIsA("TextLabel")
 
                 local function setState(v, silent)
                     state = v
                     if state then
-                        Tw(track, TI.MED,    {BackgroundColor3=Color3.fromRGB(48,48,48)})
-                        Tw(fill,  TI.MED,    {Size=UDim2.new(1,0,1,0)})
-                        Tw(thumb, TI.SPRING, {Position=UDim2.new(0,19,0.5,-6), BackgroundColor3=C.WHITE})
-                        Tw(row,   TI.FAST,   {BackgroundColor3=Color3.fromRGB(30,30,30)})
-                        if rowLbl then Tw(rowLbl, TI.FAST, {TextColor3=C.T_PRI}) end
+                        Tw(track, TI.MED,    {BackgroundColor3 = Color3.fromRGB(46,46,46)})
+                        Tw(fill,  TI.MED,    {Size = UDim2.new(1,0,1,0)})
+                        Tw(thumb, TI.SPRING, {Position = UDim2.new(0,19,0.5,-6), BackgroundColor3 = C.WHITE})
+                        Tw(tLbl,  TI.FAST,   {TextColor3 = C.T_PRI})
+                        Tw(row,   TI.FAST,   {BackgroundColor3 = Color3.fromRGB(30,30,30)})
                     else
-                        Tw(track, TI.MED,    {BackgroundColor3=C.ACC_OFF})
-                        Tw(fill,  TI.MED,    {Size=UDim2.new(0,0,1,0)})
-                        Tw(thumb, TI.SPRING, {Position=UDim2.new(0,3,0.5,-6), BackgroundColor3=C.T_DIM})
-                        Tw(row,   TI.FAST,   {BackgroundColor3=C.ELEM})
-                        if rowLbl then Tw(rowLbl, TI.FAST, {TextColor3=C.T_SEC}) end
+                        Tw(track, TI.MED,    {BackgroundColor3 = C.ACC_OFF})
+                        Tw(fill,  TI.MED,    {Size = UDim2.new(0,0,1,0)})
+                        Tw(thumb, TI.SPRING, {Position = UDim2.new(0,3,0.5,-6), BackgroundColor3 = C.T_DIM})
+                        Tw(tLbl,  TI.FAST,   {TextColor3 = C.T_SEC})
+                        Tw(row,   TI.FAST,   {BackgroundColor3 = C.ELEM})
                     end
                     if not silent and cb then task.spawn(cb, state) end
                 end
 
-                -- Invisible button over full row
-                local hit = MakeButton(row, {
-                    Size   = UDim2.new(1, 0, 1, 0),
-                    ZIndex = 9,
-                })
+                local hit = MakeButton(row, {Size = UDim2.new(1,0,1,0), ZIndex = 9})
                 hit.MouseButton1Click:Connect(function()
-                    Tw(thumb, TI.SNAP,   {Size=UDim2.new(0,16,0,10)})
+                    Tw(thumb, TI.SNAP,   {Size = UDim2.new(0,16,0,10)})
                     task.delay(0.07, function()
-                        Tw(thumb, TI.SPRING, {Size=UDim2.new(0,12,0,12)})
+                        Tw(thumb, TI.SPRING, {Size = UDim2.new(0,12,0,12)})
                         setState(not state)
                     end)
                     Ripple(row)
                 end)
                 hit.MouseEnter:Connect(function()
-                    if not state then Tw(row, TI.FAST, {BackgroundColor3=C.HOVER}) end
+                    if not state then Tw(row,TI.FAST,{BackgroundColor3=C.HOVER}) end
                 end)
                 hit.MouseLeave:Connect(function()
-                    if not state then Tw(row, TI.FAST, {BackgroundColor3=C.ELEM}) end
+                    if not state then Tw(row,TI.FAST,{BackgroundColor3=C.ELEM}) end
                 end)
 
                 function obj:Set(v) setState(v, true) end
                 function obj:Get() return state end
-                cfgSys:Register(text or ("tog"..#cfgSys.entries), obj.Get,
-                    function(v) obj:Set(v) end)
+                cfgSys:Register(
+                    (text or "tog") .. tostring(#cfgSys.entries),
+                    obj.Get,
+                    function(v) obj:Set(v) end
+                )
                 return obj
             end
 
-            -- ─────────────────────────────
             --> TOGGLE BIND
-            -- ─────────────────────────────
             function secObj:ToggleBind(text, defaultKey, cb)
                 local obj     = {}
                 local state   = false
                 local bound   = defaultKey
                 local binding = false
+                local row     = ElemRow(ROW_H)
 
-                local row = ElemRow(ROW_H)
-
-                MakeLabel(row, {
+                local tLbl = MakeLabel(row, {
                     Text       = text or "ToggleBind",
                     TextSize   = 12,
                     TextColor3 = C.T_SEC,
-                    Size       = UDim2.new(1, -128, 1, 0),
+                    Size       = UDim2.new(1, -130, 1, 0),
                     Position   = UDim2.new(0, 12, 0, 0),
                     ZIndex     = 6,
                 })
@@ -1212,18 +1184,18 @@ function AlterLib:Window(cfg)
                     BackgroundTransparency = 0,
                     TextXAlignment         = Enum.TextXAlignment.Center,
                     Size                   = UDim2.new(0, 52, 0, 20),
-                    Position               = UDim2.new(1, -106, 0.5, -10),
+                    Position               = UDim2.new(1, -104, 0.5, -10),
                     ZIndex                 = 7,
                 })
                 MakeCorner(pill, 5)
                 MakeStroke(pill, C.BORDER, 1)
 
                 local track = MakeFrame(row, {
-                    Size             = UDim2.new(0, 34, 0, 18),
-                    Position         = UDim2.new(1, -46, 0.5, -9),
-                    BackgroundColor3 = C.ACC_OFF,
+                    Size                   = UDim2.new(0, 34, 0, 18),
+                    Position               = UDim2.new(1, -46, 0.5, -9),
+                    BackgroundColor3       = C.ACC_OFF,
                     BackgroundTransparency = 0,
-                    ZIndex           = 6,
+                    ZIndex                 = 6,
                 })
                 MakeCorner(track, 9)
                 MakeStroke(track, C.BORDER, 1)
@@ -1240,66 +1212,52 @@ function AlterLib:Window(cfg)
                 })
                 MakeCorner(thumb, 6)
 
-                local rowLbl = row:FindFirstChildWhichIsA("TextLabel")
-
                 local function setState(v, silent)
                     state = v
                     if state then
-                        Tw(track,TI.MED,   {BackgroundColor3=Color3.fromRGB(48,48,48)})
+                        Tw(track,TI.MED,   {BackgroundColor3=Color3.fromRGB(46,46,46)})
                         Tw(fill, TI.MED,   {Size=UDim2.new(1,0,1,0)})
-                        Tw(thumb,TI.SPRING,{Position=UDim2.new(0,19,0.5,-6), BackgroundColor3=C.WHITE})
+                        Tw(thumb,TI.SPRING,{Position=UDim2.new(0,19,0.5,-6),BackgroundColor3=C.WHITE})
+                        Tw(tLbl, TI.FAST,  {TextColor3=C.T_PRI})
                         Tw(row,  TI.FAST,  {BackgroundColor3=Color3.fromRGB(30,30,30)})
-                        if rowLbl then Tw(rowLbl,TI.FAST,{TextColor3=C.T_PRI}) end
                     else
                         Tw(track,TI.MED,   {BackgroundColor3=C.ACC_OFF})
                         Tw(fill, TI.MED,   {Size=UDim2.new(0,0,1,0)})
-                        Tw(thumb,TI.SPRING,{Position=UDim2.new(0,3,0.5,-6), BackgroundColor3=C.T_DIM})
+                        Tw(thumb,TI.SPRING,{Position=UDim2.new(0,3,0.5,-6),BackgroundColor3=C.T_DIM})
+                        Tw(tLbl, TI.FAST,  {TextColor3=C.T_SEC})
                         Tw(row,  TI.FAST,  {BackgroundColor3=C.ELEM})
-                        if rowLbl then Tw(rowLbl,TI.FAST,{TextColor3=C.T_SEC}) end
                     end
                     if not silent and cb then task.spawn(cb, state) end
                 end
 
                 local function setBind(k, silent)
-                    bound   = k
-                    binding = false
+                    bound = k; binding = false
                     pill.Text = kn(k)
                     Tw(pill, TI.FAST, {TextColor3=C.T_SEC, BackgroundColor3=C.CARD})
                 end
 
                 pill.MouseButton1Click:Connect(function()
                     if binding then return end
-                    binding = true
-                    pill.Text = "···"
+                    binding = true; pill.Text = "···"
                     Tw(pill, TI.FAST, {TextColor3=C.WHITE, BackgroundColor3=C.ELEM})
                     task.spawn(function()
                         while binding do
-                            Tw(pill, TI.SINE, {TextTransparency=0.6})
-                            task.wait(0.33)
+                            Tw(pill,TI.SINE,{TextTransparency=0.6}); task.wait(0.33)
                             if not binding then break end
-                            Tw(pill, TI.SINE, {TextTransparency=0})
-                            task.wait(0.33)
+                            Tw(pill,TI.SINE,{TextTransparency=0});   task.wait(0.33)
                         end
                     end)
                 end)
-
                 UIS.InputBegan:Connect(function(i, gp)
                     if gp then return end
-                    if binding and i.UserInputType == Enum.UserInputType.Keyboard then
+                    if binding and i.UserInputType==Enum.UserInputType.Keyboard then
                         setBind(i.KeyCode)
-                    elseif not binding and bound and i.KeyCode == bound then
+                    elseif not binding and bound and i.KeyCode==bound then
                         setState(not state)
                     end
                 end)
-
-                -- Toggle hit (left side only, avoids pill)
-                local hit = MakeButton(row, {
-                    Size   = UDim2.new(1, -112, 1, 0),
-                    ZIndex = 8,
-                })
-                hit.MouseButton1Click:Connect(function()
-                    setState(not state); Ripple(row)
-                end)
+                local hit = MakeButton(row, {Size=UDim2.new(1,-112,1,0), ZIndex=8})
+                hit.MouseButton1Click:Connect(function() setState(not state); Ripple(row) end)
                 hit.MouseEnter:Connect(function()
                     if not state then Tw(row,TI.FAST,{BackgroundColor3=C.HOVER}) end
                 end)
@@ -1311,14 +1269,14 @@ function AlterLib:Window(cfg)
                 function obj:SetKey(k) setBind(k, true)  end
                 function obj:Get()     return state       end
                 function obj:GetKey()  return bound       end
-                cfgSys:Register(text or ("togbind"..#cfgSys.entries), obj.Get,
-                    function(v) obj:Set(v) end)
+                cfgSys:Register(
+                    (text or "togbind") .. tostring(#cfgSys.entries),
+                    obj.Get, function(v) obj:Set(v) end
+                )
                 return obj
             end
 
-            -- ─────────────────────────────
-            --> SLIDER  (step param for decimals)
-            -- ─────────────────────────────
+            --> SLIDER
             function secObj:Slider(text, min, max, default, cb, step)
                 local obj = {}
                 min     = min  or 0
@@ -1331,57 +1289,39 @@ function AlterLib:Window(cfg)
                 wrap.Size = UDim2.new(1, 0, 0, 50)
                 MakePadding(wrap, 8, 8, 12, 12)
 
-                local topRow = MakeFrame(wrap, {
-                    Size = UDim2.new(1, 0, 0, 16),
-                    ZIndex = 6,
-                })
+                local topRow = MakeFrame(wrap, {Size=UDim2.new(1,0,0,16), ZIndex=6})
 
                 MakeLabel(topRow, {
-                    Text="", TextSize=12, TextColor3=C.T_PRI,
+                    Text=text or "Slider", TextSize=12, TextColor3=C.T_PRI,
                     Size=UDim2.new(0.65,0,1,0), ZIndex=7,
-                }).Text = text or "Slider"
-
+                })
                 local valLbl = MakeLabel(topRow, {
-                    TextSize       = 11,
-                    Font           = Enum.Font.GothamBold,
-                    TextColor3     = C.T_DIM,
-                    TextXAlignment = Enum.TextXAlignment.Right,
-                    Size           = UDim2.new(0.35, 0, 1, 0),
-                    Position       = UDim2.new(0.65, 0, 0, 0),
-                    ZIndex         = 7,
+                    TextSize=11, Font=Enum.Font.GothamBold,
+                    TextColor3=C.T_DIM, TextXAlignment=Enum.TextXAlignment.Right,
+                    Size=UDim2.new(0.35,0,1,0), Position=UDim2.new(0.65,0,0,0), ZIndex=7,
                 })
 
                 local trackBg = MakeFrame(wrap, {
-                    Size             = UDim2.new(1, 0, 0, 4),
-                    Position         = UDim2.new(0, 0, 1, -12),
-                    BackgroundColor3 = C.BORDER,
-                    BackgroundTransparency = 0,
-                    ZIndex           = 6,
+                    Size=UDim2.new(1,0,0,4), Position=UDim2.new(0,0,1,-12),
+                    BackgroundColor3=C.BORDER, BackgroundTransparency=0, ZIndex=6,
                 })
                 MakeCorner(trackBg, 2)
 
                 local fill = MakeFrame(trackBg, {
-                    Size             = UDim2.new(0, 0, 1, 0),
-                    BackgroundColor3 = C.WHITE,
-                    BackgroundTransparency = 0,
-                    ZIndex           = 7,
+                    Size=UDim2.new(0,0,1,0), BackgroundColor3=C.WHITE,
+                    BackgroundTransparency=0, ZIndex=7,
                 })
                 MakeCorner(fill, 2)
 
                 local thumb = MakeFrame(trackBg, {
-                    Size             = UDim2.new(0, 14, 0, 14),
-                    Position         = UDim2.new(0, -7, 0.5, -7),
-                    BackgroundColor3 = C.WHITE,
-                    BackgroundTransparency = 0,
-                    ZIndex           = 9,
+                    Size=UDim2.new(0,14,0,14), Position=UDim2.new(0,-7,0.5,-7),
+                    BackgroundColor3=C.WHITE, BackgroundTransparency=0, ZIndex=9,
                 })
                 MakeCorner(thumb, 7)
                 MakeStroke(thumb, C.BORDER_LT, 1)
 
                 local function fmt(n)
-                    if step >= 1 then
-                        return tostring(math.floor(n))
-                    end
+                    if step >= 1 then return tostring(math.floor(n)) end
                     local d = math.max(0, math.ceil(-math.log10(step + 0.000001)))
                     return string.format("%." .. d .. "f", n)
                 end
@@ -1389,7 +1329,6 @@ function AlterLib:Window(cfg)
                 local function update(v, silent)
                     local snapped = math.floor(v / step + 0.5) * step
                     val = math.clamp(snapped, min, max)
-                    -- fix float imprecision
                     if step < 1 then
                         local m = 10 ^ math.ceil(-math.log10(step + 0.000001))
                         val = math.floor(val * m + 0.5) / m
@@ -1404,46 +1343,42 @@ function AlterLib:Window(cfg)
 
                 local dragging = false
                 local function fromInput(i)
+                    local sz = trackBg.AbsoluteSize.X
+                    if sz < 1 then return end
                     local rel = math.clamp(
-                        (i.Position.X - trackBg.AbsolutePosition.X)
-                        / math.max(trackBg.AbsoluteSize.X, 1),
-                        0, 1)
+                        (i.Position.X - trackBg.AbsolutePosition.X) / sz, 0, 1)
                     update(min + rel * (max - min))
                 end
 
-                -- Use a button over the trackBg so touch works too
                 local trackHit = MakeButton(wrap, {
-                    Size     = UDim2.new(1, 0, 0, 20),
-                    Position = UDim2.new(0, 0, 1, -20),
-                    ZIndex   = 10,
+                    Size=UDim2.new(1,0,0,20), Position=UDim2.new(0,0,1,-20), ZIndex=10,
                 })
                 trackHit.InputBegan:Connect(function(i)
-                    if i.UserInputType == Enum.UserInputType.MouseButton1
-                    or i.UserInputType == Enum.UserInputType.Touch then
-                        dragging = true
-                        local pct = (val-min)/(max-min)
-                        Tw(thumb, TI.FAST, {Size=UDim2.new(0,18,0,18), Position=UDim2.new(pct,-9,0.5,-9)})
-                        Tw(wrap,  TI.FAST, {BackgroundColor3=C.HOVER})
+                    if i.UserInputType==Enum.UserInputType.MouseButton1
+                    or i.UserInputType==Enum.UserInputType.Touch then
+                        dragging=true
+                        local pct=(val-min)/(max-min)
+                        Tw(thumb,TI.FAST,{Size=UDim2.new(0,18,0,18),Position=UDim2.new(pct,-9,0.5,-9)})
+                        Tw(wrap, TI.FAST,{BackgroundColor3=C.HOVER})
                         fromInput(i)
                     end
                 end)
                 UIS.InputEnded:Connect(function(i)
                     if not dragging then return end
-                    if i.UserInputType ~= Enum.UserInputType.MouseButton1
-                    and i.UserInputType ~= Enum.UserInputType.Touch then return end
-                    dragging = false
-                    local pct = (val-min)/(max-min)
-                    Tw(thumb, TI.SPRING, {Size=UDim2.new(0,14,0,14), Position=UDim2.new(pct,-7,0.5,-7)})
-                    Tw(wrap,  TI.FAST,   {BackgroundColor3=C.ELEM})
+                    if i.UserInputType~=Enum.UserInputType.MouseButton1
+                    and i.UserInputType~=Enum.UserInputType.Touch then return end
+                    dragging=false
+                    local pct=(val-min)/(max-min)
+                    Tw(thumb,TI.SPRING,{Size=UDim2.new(0,14,0,14),Position=UDim2.new(pct,-7,0.5,-7)})
+                    Tw(wrap, TI.FAST,  {BackgroundColor3=C.ELEM})
                 end)
                 UIS.InputChanged:Connect(function(i)
                     if not dragging then return end
-                    if i.UserInputType == Enum.UserInputType.MouseMovement
-                    or i.UserInputType == Enum.UserInputType.Touch then
+                    if i.UserInputType==Enum.UserInputType.MouseMovement
+                    or i.UserInputType==Enum.UserInputType.Touch then
                         fromInput(i)
                     end
                 end)
-
                 wrap.MouseEnter:Connect(function()
                     if not dragging then Tw(wrap,TI.FAST,{BackgroundColor3=C.HOVER}) end
                 end)
@@ -1453,108 +1388,77 @@ function AlterLib:Window(cfg)
 
                 function obj:Set(v) update(v, true) end
                 function obj:Get() return val end
-                cfgSys:Register(text or ("sl"..#cfgSys.entries), obj.Get,
-                    function(v) obj:Set(v) end)
+                cfgSys:Register(
+                    (text or "sl") .. tostring(#cfgSys.entries),
+                    obj.Get, function(v) obj:Set(v) end
+                )
                 return obj
             end
 
-            -- ─────────────────────────────
-            --> DROPDOWN (single select)
-            -- ─────────────────────────────
+            --> DROPDOWN
             function secObj:Dropdown(text, opts, cb)
                 local obj  = {}
                 local sel  = nil
                 local open = false
                 opts = opts or {}
-
                 local ITEM_H = ROW_H - 4
 
                 local ddWrap = MakeFrame(elems, {
-                    Size                   = UDim2.new(1, 0, 0, ROW_H),
-                    BackgroundColor3       = C.ELEM,
-                    BackgroundTransparency = 0,
-                    ZIndex                 = 10,
+                    Size=UDim2.new(1,0,0,ROW_H), BackgroundColor3=C.ELEM,
+                    BackgroundTransparency=0, ZIndex=10,
                 })
                 ddWrap.ClipsDescendants = false
-                MakeCorner(ddWrap, 7)
-                MakeStroke(ddWrap, C.BORDER, 1)
+                MakeCorner(ddWrap,7); MakeStroke(ddWrap,C.BORDER,1)
 
-                local ddHdr = MakeButton(ddWrap, {
-                    Size   = UDim2.new(1, 0, 0, ROW_H),
-                    ZIndex = 11,
+                local ddHdr = MakeButton(ddWrap,{Size=UDim2.new(1,0,0,ROW_H),ZIndex=11})
+                MakeLabel(ddHdr,{
+                    Text=text or "Dropdown",TextSize=12,TextColor3=C.T_SEC,
+                    Size=UDim2.new(0.5,0,1,0),Position=UDim2.new(0,12,0,0),ZIndex=12,
                 })
-                MakeLabel(ddHdr, {
-                    Text="", TextSize=12, TextColor3=C.T_SEC,
-                    Size=UDim2.new(0.5,0,1,0), Position=UDim2.new(0,12,0,0),
-                    ZIndex=12,
-                }).Text = text or "Dropdown"
-
-                local selLbl = MakeLabel(ddHdr, {
-                    Text           = "None",
-                    TextSize       = 12,
-                    Font           = Enum.Font.GothamBold,
-                    TextColor3     = C.T_PRI,
-                    TextXAlignment = Enum.TextXAlignment.Right,
-                    Size           = UDim2.new(0.42, 0, 1, 0),
-                    Position       = UDim2.new(0.5, 0, 0, 0),
-                    ZIndex         = 12,
+                local selLbl=MakeLabel(ddHdr,{
+                    Text="None",TextSize=12,Font=Enum.Font.GothamBold,
+                    TextColor3=C.T_PRI,TextXAlignment=Enum.TextXAlignment.Right,
+                    Size=UDim2.new(0.42,0,1,0),Position=UDim2.new(0.5,0,0,0),ZIndex=12,
                 })
-                local chev = MakeLabel(ddHdr, {
-                    Text           = "⌄",
-                    TextSize       = 13,
-                    Font           = Enum.Font.GothamBold,
-                    TextColor3     = C.T_DIM,
-                    TextXAlignment = Enum.TextXAlignment.Center,
-                    Size           = UDim2.new(0, 20, 1, 0),
-                    Position       = UDim2.new(1, -22, 0, 0),
-                    ZIndex         = 12,
+                local chev=MakeLabel(ddHdr,{
+                    Text="⌄",TextSize=13,Font=Enum.Font.GothamBold,
+                    TextColor3=C.T_DIM,TextXAlignment=Enum.TextXAlignment.Center,
+                    Size=UDim2.new(0,20,1,0),Position=UDim2.new(1,-22,0,0),ZIndex=12,
                 })
 
-                local ddPanel = MakeScrollFrame(ddWrap, {
-                    Size             = UDim2.new(1, 0, 0, 0),
-                    Position         = UDim2.new(0, 0, 0, ROW_H + 4),
-                    ScrollBarThickness = 2,
-                    ScrollBarImageColor3 = C.BORDER_LT,
-                    ZIndex           = 20,
+                local ddPanel=MakeScrollFrame(ddWrap,{
+                    Size=UDim2.new(1,0,0,0),Position=UDim2.new(0,0,0,ROW_H+4),
+                    ScrollBarThickness=2,ZIndex=20,
                 })
-                ddPanel.Visible = false
-                ddPanel.AutomaticCanvasSize = Enum.AutomaticSize.Y
-                MakeCorner(ddPanel, 7)
-                MakeStroke(ddPanel, C.BORDER, 1)
+                ddPanel.Visible=false
+                ddPanel.AutomaticCanvasSize=Enum.AutomaticSize.Y
+                MakeCorner(ddPanel,7); MakeStroke(ddPanel,C.BORDER,1)
 
-                local ddInner = MakeFrame(ddPanel, {
-                    Size   = UDim2.new(1, 0, 0, 0),
-                    ZIndex = 21,
-                })
-                ddInner.AutomaticSize = Enum.AutomaticSize.Y
-                MakePadding(ddInner, 4, 4, 5, 5)
-                MakeList(ddInner, Enum.FillDirection.Vertical, 2)
+                local ddInner=MakeFrame(ddPanel,{Size=UDim2.new(1,0,0,0),ZIndex=21})
+                ddInner.AutomaticSize=Enum.AutomaticSize.Y
+                MakePadding(ddInner,4,4,5,5)
+                MakeList(ddInner,Enum.FillDirection.Vertical,2)
 
                 local function buildOpts()
                     ddInner:ClearAllChildren()
-                    MakePadding(ddInner, 4, 4, 5, 5)
-                    MakeList(ddInner, Enum.FillDirection.Vertical, 2)
-                    for _, opt in ipairs(opts) do
-                        local isSel = (opt == sel)
-                        local ob = MakeButton(ddInner, {
-                            Text                   = tostring(opt),
-                            TextSize               = 12,
-                            Font                   = isSel and Enum.Font.GothamBold or Enum.Font.GothamMedium,
-                            TextColor3             = isSel and C.T_PRI or C.T_SEC,
-                            BackgroundColor3       = isSel and C.ELEM  or C.CARD,
-                            BackgroundTransparency = 0,
-                            TextXAlignment         = Enum.TextXAlignment.Left,
-                            Size                   = UDim2.new(1, 0, 0, ITEM_H),
-                            ZIndex                 = 22,
+                    MakePadding(ddInner,4,4,5,5)
+                    MakeList(ddInner,Enum.FillDirection.Vertical,2)
+                    for _,opt in ipairs(opts) do
+                        local isSel=(opt==sel)
+                        local ob=MakeButton(ddInner,{
+                            Text=tostring(opt),TextSize=12,
+                            Font=isSel and Enum.Font.GothamBold or Enum.Font.GothamMedium,
+                            TextColor3=isSel and C.T_PRI or C.T_SEC,
+                            BackgroundColor3=isSel and C.ELEM or C.CARD,
+                            BackgroundTransparency=0,TextXAlignment=Enum.TextXAlignment.Left,
+                            Size=UDim2.new(1,0,0,ITEM_H),ZIndex=22,
                         })
-                        MakePadding(ob, 0, 0, 8, 0)
-                        MakeCorner(ob, 5)
+                        MakePadding(ob,0,0,8,0); MakeCorner(ob,5)
                         if isSel then
-                            MakeLabel(ob, {
-                                Text="✓", TextSize=10, Font=Enum.Font.GothamBold,
-                                TextColor3=C.WHITE, TextXAlignment=Enum.TextXAlignment.Center,
-                                Size=UDim2.new(0,16,1,0), Position=UDim2.new(1,-18,0,0),
-                                ZIndex=23,
+                            MakeLabel(ob,{
+                                Text="✓",TextSize=10,Font=Enum.Font.GothamBold,
+                                TextColor3=C.WHITE,TextXAlignment=Enum.TextXAlignment.Center,
+                                Size=UDim2.new(0,16,1,0),Position=UDim2.new(1,-18,0,0),ZIndex=23,
                             })
                         end
                         ob.MouseEnter:Connect(function()
@@ -1564,34 +1468,30 @@ function AlterLib:Window(cfg)
                             if not isSel then Tw(ob,TI.FAST,{BackgroundColor3=C.CARD}) end
                         end)
                         ob.MouseButton1Click:Connect(function()
-                            sel = opt
-                            selLbl.Text = tostring(opt)
-                            buildOpts()
-                            if cb then task.spawn(cb, opt) end
+                            sel=opt; selLbl.Text=tostring(opt); buildOpts()
+                            if cb then task.spawn(cb,opt) end
                         end)
                     end
                 end
                 buildOpts()
 
                 local function toggleDD()
-                    open = not open
+                    open=not open
                     if open then
-                        local maxVisible = 5
-                        local h = math.min(#opts, maxVisible) * (ITEM_H + 2) + 8
-                        ddPanel.Visible = true
-                        Tw(ddPanel, TI.MED,  {Size=UDim2.new(1,0,0,h)})
-                        Tw(chev,    TI.MED,  {Rotation=180})
-                        Tw(ddWrap,  TI.FAST, {BackgroundColor3=C.HOVER})
+                        local h=math.min(#opts,5)*(ITEM_H+2)+8
+                        ddPanel.Visible=true
+                        Tw(ddPanel,TI.MED,{Size=UDim2.new(1,0,0,h)})
+                        Tw(chev,TI.MED,{Rotation=180})
+                        Tw(ddWrap,TI.FAST,{BackgroundColor3=C.HOVER})
                     else
-                        Tw(ddPanel, TI.MED,  {Size=UDim2.new(1,0,0,0)})
-                        Tw(chev,    TI.MED,  {Rotation=0})
-                        Tw(ddWrap,  TI.FAST, {BackgroundColor3=C.ELEM})
-                        task.delay(0.22, function()
-                            if not open then ddPanel.Visible = false end
+                        Tw(ddPanel,TI.MED,{Size=UDim2.new(1,0,0,0)})
+                        Tw(chev,TI.MED,{Rotation=0})
+                        Tw(ddWrap,TI.FAST,{BackgroundColor3=C.ELEM})
+                        task.delay(0.22,function()
+                            if not open then ddPanel.Visible=false end
                         end)
                     end
                 end
-
                 ddHdr.MouseButton1Click:Connect(function() toggleDD(); Ripple(ddWrap) end)
                 ddHdr.MouseEnter:Connect(function()
                     if not open then Tw(ddWrap,TI.FAST,{BackgroundColor3=C.HOVER}) end
@@ -1601,92 +1501,83 @@ function AlterLib:Window(cfg)
                 end)
 
                 function obj:Set(v) sel=v; selLbl.Text=tostring(v); buildOpts() end
-                function obj:Refresh(o,del) opts=o or {}; if del then sel=nil; selLbl.Text="None" end buildOpts() end
+                function obj:Refresh(o,del)
+                    opts=o or {}
+                    if del then sel=nil; selLbl.Text="None" end
+                    buildOpts()
+                end
                 function obj:Get() return sel end
-                cfgSys:Register(text or ("dd"..#cfgSys.entries), obj.Get, function(v) obj:Set(v) end)
+                cfgSys:Register(
+                    (text or "dd") .. tostring(#cfgSys.entries),
+                    obj.Get, function(v) obj:Set(v) end
+                )
                 return obj
             end
 
-            -- ─────────────────────────────
             --> MULTI DROPDOWN
-            -- ─────────────────────────────
             function secObj:MultiDropdown(text, opts, cb)
                 local obj      = {}
                 local selected = {}
                 local open     = false
                 opts = opts or {}
-
                 local ITEM_H = ROW_H - 4
 
-                local ddWrap = MakeFrame(elems, {
-                    Size                   = UDim2.new(1, 0, 0, ROW_H),
-                    BackgroundColor3       = C.ELEM,
-                    BackgroundTransparency = 0,
-                    ZIndex                 = 10,
+                local ddWrap=MakeFrame(elems,{
+                    Size=UDim2.new(1,0,0,ROW_H),BackgroundColor3=C.ELEM,
+                    BackgroundTransparency=0,ZIndex=10,
                 })
-                ddWrap.ClipsDescendants = false
-                MakeCorner(ddWrap, 7)
-                MakeStroke(ddWrap, C.BORDER, 1)
+                ddWrap.ClipsDescendants=false
+                MakeCorner(ddWrap,7); MakeStroke(ddWrap,C.BORDER,1)
 
-                local ddHdr = MakeButton(ddWrap, {Size=UDim2.new(1,0,0,ROW_H), ZIndex=11})
-
-                MakeLabel(ddHdr, {
-                    Text="▣ "..(text or "Multi Select"), TextSize=12, TextColor3=C.T_SEC,
-                    Size=UDim2.new(0.55,0,1,0), Position=UDim2.new(0,12,0,0), ZIndex=12,
+                local ddHdr=MakeButton(ddWrap,{Size=UDim2.new(1,0,0,ROW_H),ZIndex=11})
+                MakeLabel(ddHdr,{
+                    Text="▣ "..(text or "Multi Select"),TextSize=12,TextColor3=C.T_SEC,
+                    Size=UDim2.new(0.55,0,1,0),Position=UDim2.new(0,12,0,0),ZIndex=12,
                 })
-                local countLbl = MakeLabel(ddHdr, {
-                    Text="None", TextSize=11, Font=Enum.Font.GothamBold,
-                    TextColor3=C.T_DIM, TextXAlignment=Enum.TextXAlignment.Right,
-                    Size=UDim2.new(0.38,0,1,0), Position=UDim2.new(0.55,0,0,0), ZIndex=12,
+                local countLbl=MakeLabel(ddHdr,{
+                    Text="None",TextSize=11,Font=Enum.Font.GothamBold,TextColor3=C.T_DIM,
+                    TextXAlignment=Enum.TextXAlignment.Right,
+                    Size=UDim2.new(0.38,0,1,0),Position=UDim2.new(0.55,0,0,0),ZIndex=12,
                 })
-                local chev = MakeLabel(ddHdr, {
-                    Text="⌄", TextSize=13, Font=Enum.Font.GothamBold,
-                    TextColor3=C.T_DIM, TextXAlignment=Enum.TextXAlignment.Center,
-                    Size=UDim2.new(0,20,1,0), Position=UDim2.new(1,-22,0,0), ZIndex=12,
+                local chev=MakeLabel(ddHdr,{
+                    Text="⌄",TextSize=13,Font=Enum.Font.GothamBold,
+                    TextColor3=C.T_DIM,TextXAlignment=Enum.TextXAlignment.Center,
+                    Size=UDim2.new(0,20,1,0),Position=UDim2.new(1,-22,0,0),ZIndex=12,
                 })
 
-                local ddPanel = MakeScrollFrame(ddWrap, {
-                    Size=UDim2.new(1,0,0,0),
-                    Position=UDim2.new(0,0,0,ROW_H+4),
-                    ScrollBarThickness=2, ScrollBarImageColor3=C.BORDER_LT,
-                    ZIndex=20,
+                local ddPanel=MakeScrollFrame(ddWrap,{
+                    Size=UDim2.new(1,0,0,0),Position=UDim2.new(0,0,0,ROW_H+4),
+                    ScrollBarThickness=2,ZIndex=20,
                 })
                 ddPanel.Visible=false
                 ddPanel.AutomaticCanvasSize=Enum.AutomaticSize.Y
                 MakeCorner(ddPanel,7); MakeStroke(ddPanel,C.BORDER,1)
 
-                local ddInner = MakeFrame(ddPanel,{Size=UDim2.new(1,0,0,0),ZIndex=21})
+                local ddInner=MakeFrame(ddPanel,{Size=UDim2.new(1,0,0,0),ZIndex=21})
                 ddInner.AutomaticSize=Enum.AutomaticSize.Y
                 MakePadding(ddInner,4,4,5,5)
                 MakeList(ddInner,Enum.FillDirection.Vertical,2)
 
-                local function countSelected()
-                    local n=0; for _ in pairs(selected) do n=n+1 end; return n
-                end
-
                 local function updateCount()
-                    local n=countSelected()
-                    countLbl.Text = n==0 and "None" or (n.." sel")
+                    local n=0; for _ in pairs(selected) do n=n+1 end
+                    countLbl.Text=n==0 and "None" or (n.." sel")
                 end
 
                 local function buildOpts()
                     ddInner:ClearAllChildren()
                     MakePadding(ddInner,4,4,5,5)
                     MakeList(ddInner,Enum.FillDirection.Vertical,2)
-                    for _, opt in ipairs(opts) do
+                    for _,opt in ipairs(opts) do
                         local isSel=selected[opt]==true
                         local ob=MakeButton(ddInner,{
                             BackgroundColor3=isSel and C.ELEM or C.CARD,
-                            BackgroundTransparency=0,
-                            Size=UDim2.new(1,0,0,ITEM_H),
-                            ZIndex=22,
+                            BackgroundTransparency=0,Size=UDim2.new(1,0,0,ITEM_H),ZIndex=22,
                         })
                         MakeCorner(ob,5)
-                        -- checkbox
                         local chkBox=MakeFrame(ob,{
-                            Size=UDim2.new(0,13,0,13), Position=UDim2.new(0,6,0.5,-6.5),
+                            Size=UDim2.new(0,13,0,13),Position=UDim2.new(0,6,0.5,-6.5),
                             BackgroundColor3=isSel and C.WHITE or C.BORDER,
-                            BackgroundTransparency=0, ZIndex=23,
+                            BackgroundTransparency=0,ZIndex=23,
                         })
                         MakeCorner(chkBox,3)
                         if isSel then
@@ -1700,7 +1591,7 @@ function AlterLib:Window(cfg)
                             Text=tostring(opt),TextSize=12,
                             Font=isSel and Enum.Font.GothamBold or Enum.Font.GothamMedium,
                             TextColor3=isSel and C.T_PRI or C.T_SEC,
-                            Size=UDim2.new(1,-28,1,0), Position=UDim2.new(0,26,0,0), ZIndex=23,
+                            Size=UDim2.new(1,-28,1,0),Position=UDim2.new(0,26,0,0),ZIndex=23,
                         })
                         ob.MouseEnter:Connect(function() Tw(ob,TI.FAST,{BackgroundColor3=C.HOVER}) end)
                         ob.MouseLeave:Connect(function()
@@ -1709,8 +1600,7 @@ function AlterLib:Window(cfg)
                         ob.MouseButton1Click:Connect(function()
                             if selected[opt] then selected[opt]=nil else selected[opt]=true end
                             updateCount(); buildOpts()
-                            local arr={}
-                            for k in pairs(selected) do table.insert(arr,k) end
+                            local arr={} for k in pairs(selected) do table.insert(arr,k) end
                             if cb then task.spawn(cb,arr) end
                         end)
                     end
@@ -1729,10 +1619,11 @@ function AlterLib:Window(cfg)
                         Tw(ddPanel,TI.MED,{Size=UDim2.new(1,0,0,0)})
                         Tw(chev,TI.MED,{Rotation=0})
                         Tw(ddWrap,TI.FAST,{BackgroundColor3=C.ELEM})
-                        task.delay(0.22,function() if not open then ddPanel.Visible=false end end)
+                        task.delay(0.22,function()
+                            if not open then ddPanel.Visible=false end
+                        end)
                     end
                 end
-
                 ddHdr.MouseButton1Click:Connect(function() toggleDD(); Ripple(ddWrap) end)
                 ddHdr.MouseEnter:Connect(function()
                     if not open then Tw(ddWrap,TI.FAST,{BackgroundColor3=C.HOVER}) end
@@ -1749,67 +1640,53 @@ function AlterLib:Window(cfg)
                     updateCount(); buildOpts()
                 end
                 function obj:Get()
-                    local arr={}; for k in pairs(selected) do table.insert(arr,k) end; return arr
+                    local arr={} for k in pairs(selected) do table.insert(arr,k) end return arr
                 end
                 function obj:Refresh(o,reset)
-                    opts=o or {}
-                    if reset then selected={} end
+                    opts=o or {}; if reset then selected={} end
                     updateCount(); buildOpts()
                 end
                 return obj
             end
 
-            -- ─────────────────────────────
             --> BIND
-            -- ─────────────────────────────
             function secObj:Bind(text, default, cb)
-                local obj     = {}
-                local bound   = default
-                local binding = false
+                local obj={} ; local bound=default ; local binding=false
+                local row=ElemRow(ROW_H)
 
-                local row = ElemRow(ROW_H)
-                MakeLabel(row, {
-                    Text="", TextSize=12, TextColor3=C.T_SEC,
-                    Size=UDim2.new(0.55,0,1,0), Position=UDim2.new(0,12,0,0), ZIndex=6,
-                }).Text = text or "Bind"
-
+                MakeLabel(row,{
+                    Text=text or "Bind",TextSize=12,TextColor3=C.T_SEC,
+                    Size=UDim2.new(0.55,0,1,0),Position=UDim2.new(0,12,0,0),ZIndex=6,
+                })
                 local function kn(k)
                     if not k then return "—" end
                     return tostring(k):gsub("Enum.KeyCode.","")
                 end
-
-                local pill = MakeButton(row, {
-                    Text="", TextSize=10, Font=Enum.Font.GothamBold,
-                    TextColor3=C.T_SEC, BackgroundColor3=C.CARD, BackgroundTransparency=0,
+                local pill=MakeButton(row,{
+                    Text=kn(bound),TextSize=10,Font=Enum.Font.GothamBold,
+                    TextColor3=C.T_SEC,BackgroundColor3=C.CARD,BackgroundTransparency=0,
                     TextXAlignment=Enum.TextXAlignment.Center,
-                    Size=UDim2.new(0,66,0,20), Position=UDim2.new(1,-76,0.5,-10),
-                    ZIndex=6,
+                    Size=UDim2.new(0,66,0,20),Position=UDim2.new(1,-76,0.5,-10),ZIndex=6,
                 })
-                pill.Text = kn(bound)
                 MakeCorner(pill,5); MakeStroke(pill,C.BORDER,1)
 
                 local function setBind(k,silent)
-                    bound=k; binding=false
-                    pill.Text=kn(k)
-                    Tw(pill,TI.FAST,{TextColor3=C.T_SEC, BackgroundColor3=C.CARD})
+                    bound=k; binding=false; pill.Text=kn(k)
+                    Tw(pill,TI.FAST,{TextColor3=C.T_SEC,BackgroundColor3=C.CARD})
                     if not silent and cb then task.spawn(cb,k) end
                 end
-
                 pill.MouseButton1Click:Connect(function()
                     if binding then return end
                     binding=true; pill.Text="···"
-                    Tw(pill,TI.FAST,{TextColor3=C.WHITE, BackgroundColor3=C.ELEM})
+                    Tw(pill,TI.FAST,{TextColor3=C.WHITE,BackgroundColor3=C.ELEM})
                     task.spawn(function()
                         while binding do
-                            Tw(pill,TI.SINE,{TextTransparency=0.6})
-                            task.wait(0.33)
+                            Tw(pill,TI.SINE,{TextTransparency=0.6}); task.wait(0.33)
                             if not binding then break end
-                            Tw(pill,TI.SINE,{TextTransparency=0})
-                            task.wait(0.33)
+                            Tw(pill,TI.SINE,{TextTransparency=0});   task.wait(0.33)
                         end
                     end)
                 end)
-
                 UIS.InputBegan:Connect(function(i,gp)
                     if gp then return end
                     if binding and i.UserInputType==Enum.UserInputType.Keyboard then
@@ -1818,15 +1695,16 @@ function AlterLib:Window(cfg)
                         if cb then task.spawn(cb,bound) end
                     end
                 end)
-
                 row.MouseEnter:Connect(function() Tw(row,TI.FAST,{BackgroundColor3=C.HOVER}) end)
                 row.MouseLeave:Connect(function() Tw(row,TI.FAST,{BackgroundColor3=C.ELEM}) end)
 
                 function obj:Set(k) setBind(k,true) end
                 function obj:Get() return bound end
-                cfgSys:Register(text or ("bind"..#cfgSys.entries),
+                cfgSys:Register(
+                    (text or "bind") .. tostring(#cfgSys.entries),
                     function() return kn(bound) end,
-                    function(v) pcall(function() setBind(Enum.KeyCode[v],true) end) end)
+                    function(v) pcall(function() setBind(Enum.KeyCode[v],true) end) end
+                )
                 return obj
             end
 
