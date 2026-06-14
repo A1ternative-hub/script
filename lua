@@ -64,9 +64,6 @@ local function Tw(obj, ti, props)
     end
 end
 
--- NO C references at definition time in any of these functions
--- C is only used inside function bodies which run AFTER C is defined
-
 local function MakeFrame(parent, props)
     local f = Instance.new("Frame")
     f.BackgroundTransparency = 1
@@ -123,7 +120,6 @@ local function MakeCorner(parent, radius)
 end
 
 local function MakeStroke(parent, color, thickness)
-    -- color param passed at call site, not from C at definition time
     local s = Instance.new("UIStroke")
     s.Color = color or Color3.fromRGB(42, 42, 42)
     s.Thickness = thickness or 1
@@ -152,8 +148,6 @@ local function MakeList(parent, direction, gap)
     return l
 end
 
--- ScrollFrame: NO default color references here
--- scrollbar color is set by caller
 local function MakeScrollFrame(parent, props)
     local s = Instance.new("ScrollingFrame")
     s.BackgroundTransparency = 1
@@ -162,7 +156,6 @@ local function MakeScrollFrame(parent, props)
     s.ScrollingDirection = Enum.ScrollingDirection.Y
     s.CanvasSize = UDim2.new(0, 0, 0, 0)
     s.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    -- NO C reference here — set after construction
     if props then
         for k, v in pairs(props) do
             pcall(function() s[k] = v end)
@@ -849,7 +842,7 @@ function AlterLib:Window(cfg)
                 local f = MakeFrame(elems, {Size=UDim2.new(1,0,0,24), ZIndex=5})
                 MakeLabel(f, {
                     Text=text or "", TextSize=11,
-                    TextColor3=col or C.T_SEC,
+                    TextColor3=col or C.T_SEC,   -- ← uses C safely (inside library)
                     Size=UDim2.new(1,0,1,0), TextWrapped=true, ZIndex=6,
                 })
             end
@@ -1432,5 +1425,8 @@ function AlterLib:Window(cfg)
 
     return winObj
 end -- Window
+
+-- ▼▼▼ THE ONE-LINE FIX ▼▼▼
+AlterLib.Colors = C   -- export palette so loader scripts can use Alter.Colors.T_DIM etc.
 
 return AlterLib
