@@ -1444,4 +1444,163 @@ function AlterLib:Window(cfg)
                 
                 local ddHdr=MakeButton(ddWrap,{Size=UDim2.new(1,0,0,ROW_H),ZIndex=11})
                 ddHdr.Active = true
-                MakeLabel(ddHdr,{ Text=text or "Multi Select",TextSize=11,TextColor3=C.T_SEC, Size=UDim2.new(0.
+                MakeLabel(ddHdr,{ Text=text or "Multi Select",TextSize=11,TextColor3=C.T_SEC, Size=UDim2.new(0.55,0,1,0),Position=UDim2.new(0,12,0,0),ZIndex=12 })
+                local countLbl=MakeLabel(ddHdr,{ Text="None",TextSize=10,Font=Enum.Font.GothamBold,TextColor3=C.T_DIM, TextXAlignment=Enum.TextXAlignment.Right, Size=UDim2.new(0.38,0,1,0),Position=UDim2.new(0.55,0,0,0),ZIndex=12 })
+                local chev=MakeLabel(ddHdr,{ Text="▾",TextSize=12,Font=Enum.Font.GothamBold,TextColor3=C.T_DIM, TextXAlignment=Enum.TextXAlignment.Center, Size=UDim2.new(0,20,1,0),Position=UDim2.new(1,-22,0,0),ZIndex=12 })
+                
+                local ddPanel=MakeScrollFrame(ddWrap,{ Size=UDim2.new(1,0,0,0),Position=UDim2.new(0,0,0,ROW_H+2), ScrollBarThickness=1,ZIndex=20, AutomaticSize = Enum.AutomaticSize.None })
+                ddPanel.ScrollBarImageColor3=C.BORDER_LT
+                ddPanel.ClipsDescendants = true
+                ddPanel.Visible=false
+                
+                local ddInner=MakeFrame(ddPanel,{ Size=UDim2.new(1,0,0,0),ZIndex=21, AutomaticSize = Enum.AutomaticSize.Y })
+                MakePadding(ddInner,4,4,5,5); MakeList(ddInner,Enum.FillDirection.Vertical,2)
+                
+                local function updateCount()
+                    local n=0;for _ in pairs(selected) do n=n+1 end
+                    countLbl.Text=n==0 and "None" or (n.." selected")
+                end
+
+                local function buildOpts()
+                    ddInner:ClearAllChildren()
+                    MakePadding(ddInner,4,4,5,5); MakeList(ddInner,Enum.FillDirection.Vertical,2)
+                    for _,opt in ipairs(opts) do
+                        local isSel=selected[opt]==true
+                        local ob=MakeButton(ddInner,{ BackgroundColor3=isSel and C.ELEM or C.CARD, BackgroundTransparency=0,Size=UDim2.new(1,0,0,ITEM_H),ZIndex=22 })
+                        ob.Active = true
+                        MakeCorner(ob,5)
+                        local chkBox=MakeFrame(ob,{ Size=UDim2.new(0,12,0,12),Position=UDim2.new(0,8,0.5,-6), BackgroundColor3=isSel and C.WHITE or C.BORDER, BackgroundTransparency=0,ZIndex=23 })
+                        MakeCorner(chkBox,3)
+                        if isSel then
+                            MakeLabel(chkBox,{ Text="✓",TextSize=10,Font=Enum.Font.GothamBold, TextColor3=C.BLACK,TextXAlignment=Enum.TextXAlignment.Center, Size=UDim2.new(1,0,1,0),ZIndex=24 })
+                        end
+                        MakeLabel(ob,{ Text=tostring(opt),TextSize=11, Font=isSel and Enum.Font.GothamBold or Enum.Font.GothamMedium, TextColor3=isSel and C.T_PRI or C.T_SEC, Size=UDim2.new(1,-32,1,0),Position=UDim2.new(0,28,0,0),ZIndex=23 })
+                        ob.MouseEnter:Connect(function() Tw(ob,TI.FAST,{BackgroundColor3=C.HOVER}) end)
+                        ob.MouseLeave:Connect(function() Tw(ob,TI.FAST,{BackgroundColor3=isSel and C.ELEM or C.CARD}) end)
+                        ob.MouseButton1Click:Connect(function()
+                            if selected[opt] then selected[opt]=nil else selected[opt]=true end
+                            updateCount();buildOpts()
+                            local arr={};for k in pairs(selected) do table.insert(arr,k) end
+                            if cb then task.spawn(cb,arr) end
+                        end)
+                    end
+                end
+
+                local function toggleDD()
+                    open=not open
+                    if open then
+                        buildOpts()
+                        ddPanel.Visible=true
+                        local itemsCount = #opts
+                        local calcHeight = math.clamp((itemsCount * ITEM_H) + ((itemsCount - 1) * 2) + 12, 0, 134)
+                        
+                        Tw(chev,TI.MED,{Rotation=180, TextColor3=C.WHITE})
+                        Tw(ddWrap,TI.FAST,{BackgroundColor3=C.HOVER, Size=UDim2.new(1,0,0,ROW_H + 2 + calcHeight)})
+                        Tw(ddPanel,TI.MED,{Size=UDim2.new(1,0,0,calcHeight)})
+                    else
+                        Tw(chev,TI.MED,{Rotation=0, TextColor3=C.T_DIM})
+                        Tw(ddWrap,TI.FAST,{BackgroundColor3=C.ELEM, Size=UDim2.new(1,0,0,ROW_H)})
+                        Tw(ddPanel,TI.MED,{Size=UDim2.new(1,0,0,0)})
+                        task.delay(TI.MED.Time, function() if not open then ddPanel.Visible = false end end)
+                    end
+                end
+
+                ddHdr.MouseButton1Click:Connect(function() toggleDD();Ripple(ddWrap) end)
+                ddHdr.MouseEnter:Connect(function() 
+                    Tw(ddStrk, TI.FAST, {Color=C.BORDER_LT})
+                    if not open then Tw(ddWrap,TI.FAST,{BackgroundColor3=C.HOVER}) end 
+                end)
+                ddHdr.MouseLeave:Connect(function() 
+                    Tw(ddStrk, TI.FAST, {Color=C.BORDER})
+                    if not open then Tw(ddWrap,TI.FAST,{BackgroundColor3=C.ELEM}) end 
+                end)
+
+                function obj:Set(arr, silent)
+                    selected={}
+                    if type(arr)=="table" then for _,v in ipairs(arr) do selected[v]=true end end
+                    updateCount();buildOpts()
+                    if not silent and cb then
+                        local out={};for k in pairs(selected) do table.insert(out,k) end
+                        task.spawn(cb, out)
+                    end
+                end
+                function obj:Get() local arr={};for k in pairs(selected) do table.insert(arr,k) end;return arr end
+                function obj:Refresh(o,reset) opts=o or {};if reset then selected={} end;updateCount();buildOpts() end
+
+                cfgSys:Register((text or "mdd")..#cfgSys.entries,obj.Get,function(v) obj:Set(v, false) end)
+                return obj
+            end
+
+            function secObj:Bind(text, default, cb)
+                local obj={};local bound=default;local binding=false
+                local row=ElemRow(ROW_H)
+                local rowStrk = row:FindFirstChildOfClass("UIStroke")
+                
+                MakeLabel(row,{ Text=text or "Bind",TextSize=11,TextColor3=C.T_SEC, Size=UDim2.new(0.55,0,1,0),Position=UDim2.new(0,12,0,0),ZIndex=6 })
+                local function kn(k) if not k then return "-" end return tostring(k):gsub("Enum.KeyCode.","") end
+                
+                local pill=MakeButton(row,{ Text=kn(bound),TextSize=9,Font=Enum.Font.GothamBold, TextColor3=C.T_SEC,BackgroundColor3=C.CARD,BackgroundTransparency=0, TextXAlignment=Enum.TextXAlignment.Center, Size=UDim2.new(0,66,0,20),Position=UDim2.new(1,-76,0.5,-10),ZIndex=16 })
+                pill.Active = true
+                MakeCorner(pill,5);MakeStroke(pill,C.BORDER,1)
+
+                local function setBind(k,silent)
+                    bound=k;binding=false;pill.Text=kn(k)
+                    Tw(pill,TI.FAST,{TextColor3=C.T_SEC,BackgroundColor3=C.CARD})
+                    if not silent and cb then task.spawn(cb,k) end
+                end
+
+                pill.MouseButton1Click:Connect(function()
+                    if binding then return end
+                    binding=true;pill.Text="..."
+                    Tw(pill,TI.FAST,{TextColor3=C.WHITE,BackgroundColor3=C.ELEM})
+                    task.spawn(function()
+                        while binding do
+                            Tw(pill,TI.SINE,{TextTransparency=0.5});task.wait(0.3)
+                            if not binding then break end
+                            Tw(pill,TI.SINE,{TextTransparency=0});task.wait(0.3)
+                        end
+                    end)
+                end)
+
+                UIS.InputBegan:Connect(function(i,gp)
+                    if gp then return end
+                    if binding and i.UserInputType==Enum.UserInputType.Keyboard then
+                        setBind(i.KeyCode, false)
+                    elseif not binding and bound and i.KeyCode==bound then
+                        if cb then task.spawn(cb,bound) end
+                    end
+                end)
+
+                local hit=MakeButton(row,{Size=UDim2.new(1,0,1,0),ZIndex=15})
+                hit.Active = true
+                hit.MouseButton1Click:Connect(function() if cb and bound then task.spawn(cb, bound) Ripple(row) end end)
+                hit.MouseEnter:Connect(function() 
+                    if rowStrk then Tw(rowStrk, TI.FAST, {Color=C.BORDER_LT}) end
+                    Tw(row,TI.FAST,{BackgroundColor3=C.HOVER}) 
+                end)
+                hit.MouseLeave:Connect(function() 
+                    if rowStrk then Tw(rowStrk, TI.FAST, {Color=C.BORDER}) end
+                    Tw(row,TI.FAST,{BackgroundColor3=C.ELEM}) 
+                end)
+
+                function obj:Set(k, silent) setBind(k, silent) end
+                function obj:Get() return bound end
+
+                cfgSys:Register((text or "bind")..#cfgSys.entries,
+                    function() return kn(bound) end,
+                    function(v) pcall(function() setBind(Enum.KeyCode[v], false) end) end)
+                return obj
+            end
+
+            return secObj
+        end
+
+        return tabObj
+    end
+
+    return winObj
+end
+
+AlterLib.Colors = C
+
+return AlterLib
