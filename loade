@@ -1,4 +1,4 @@
--- ALTER UI Library v6.7 (High-Fidelity Visual Pass - Fully Optimized)
+-- ALTER UI Library v6.7 (High-Fidelity Visual Pass - Mobile Optimized)
 -- Premium Features: Instant Section Collapsing, UI Toggle Animations, Smooth Window Physics.
 
 local AlterLib = {}
@@ -362,28 +362,6 @@ function ConfigSys:List()
     return out
 end
 
-function ConfigSys:AutoLoadByPlaceId(map)
-    task.delay(1.5, function()
-        local pid = tostring(game.PlaceId)
-        if map and map[pid] and self:Load(map[pid]) then
-            print("[Alter] PlaceId autoloaded:", map[pid])
-        else
-            self:Load("default")
-        end
-    end)
-end
-
-function ConfigSys:AutoLoadByGameId(map)
-    task.delay(1.5, function()
-        local gid = tostring(game.GameId)
-        if map and map[gid] and self:Load(map[gid]) then
-            print("[Alter] GameId autoloaded:", map[gid])
-        else
-            self:Load("default")
-        end
-    end)
-end
-
 -- Notifications Panel
 local _nSG, _nHolder
 local function EnsureNotif()
@@ -548,10 +526,11 @@ function AlterLib:Window(cfg)
     local IS_MOB = UIS.TouchEnabled or (UIS.TouchEnabled and not UIS.KeyboardEnabled)
     local vp     = workspace.CurrentCamera.ViewportSize
     
-    local WIN_W  = IS_MOB and math.min(vp.X - 16, 380) or 600
-    local WIN_H  = IS_MOB and math.min(vp.Y - 16, 420) or 480
-    local SIDE_W = IS_MOB and 110 or 140
-    local ROW_H  = IS_MOB and 38  or 32
+    -- Auto-Scaling Adaptive Form Factors
+    local WIN_W  = IS_MOB and math.min(vp.X - 16, 360) or 600
+    local WIN_H  = IS_MOB and math.min(vp.Y - 16, 440) or 480
+    local SIDE_W = IS_MOB and 150 or 140
+    local ROW_H  = IS_MOB and 42  or 32
 
     local sg     = MakeSG(cfg.Folder or "WIN")
     local cfgSys = ConfigSys.new(cfg.Folder or "AlterHub")
@@ -577,18 +556,20 @@ function AlterLib:Window(cfg)
         BackgroundColor3=C.PANEL, BackgroundTransparency=0, ZIndex=4,
     })
 
+    -- Reposition Title Text slightly on Mobile to make space for Sidebar toggle
     local hubLbl = MakeLabel(titleBar, {
         Text=cfg.Name or "ALTER", TextSize=14, Font=Enum.Font.GothamBlack,
         TextColor3=C.T_PRI, TextTransparency=0, RichText=true,
-        Size=UDim2.new(0.55,0,0,26), Position=UDim2.new(0,14,0.5,-13), ZIndex=5,
+        Size=UDim2.new(0.4,0,0,26), Position=UDim2.new(0, IS_MOB and 46 or 14, 0.5, -13), ZIndex=5,
     })
     MakeLabel(titleBar, {
         Text="PlaceId: " .. tostring(game.PlaceId), TextSize=9, TextColor3=C.T_DIM,
-        Size=UDim2.new(0.55,0,0,12), Position=UDim2.new(0,14,1,-14), ZIndex=5,
+        Size=UDim2.new(0.4,0,0,12), Position=UDim2.new(0, IS_MOB and 46 or 14, 1, -14), ZIndex=5,
     })
 
     local ctrlF = MakeFrame(titleBar, {
-        Size=UDim2.new(0,58,0,22), Position=UDim2.new(1,-66,0.5,-11), ZIndex=5,
+        Size=UDim2.new(0, IS_MOB and 70 or 58, 0, IS_MOB and 28 or 22), 
+        Position=UDim2.new(1, IS_MOB and -78 or -66, 0.5, IS_MOB and -14 or -11), ZIndex=5,
     })
     MakeList(ctrlF, Enum.FillDirection.Horizontal, 6)
 
@@ -634,38 +615,12 @@ function AlterLib:Window(cfg)
         end
     end)
 
-    local mobToggle = MakeButton(sg, {
-        Size = UDim2.new(0, 44, 0, 44),
-        Position = UDim2.new(0, 15, 0, 15),
-        BackgroundColor3 = C.PANEL,
-        BackgroundTransparency = 0.1,
-        Visible = IS_MOB,
-        ZIndex = 999,
-    })
-    MakeCorner(mobToggle, 22)
-    MakeStroke(mobToggle, C.BORDER_LT, 1)
-    
-    local mobToggleLbl = MakeLabel(mobToggle, {
-        Text = "UI",
-        TextSize = 10,
-        Font = Enum.Font.GothamBold,
-        TextColor3 = C.WHITE,
-        TextXAlignment = Enum.TextXAlignment.Center,
-        Size = UDim2.fromScale(1, 1),
-        ZIndex = 1000
-    })
-    
-    mobToggle.MouseButton1Click:Connect(function()
-        Ripple(mobToggle)
-        toggleUIVisibility()
-    end)
-
     local function CtrlBtn(sym, action)
         local b = MakeButton(ctrlF, {
             Text=sym, TextSize=11, Font=Enum.Font.GothamBold,
             TextColor3=C.T_DIM, BackgroundColor3=C.ELEM,
             BackgroundTransparency=0, TextXAlignment=Enum.TextXAlignment.Center,
-            Size=UDim2.new(0,26,0,22), ZIndex=6,
+            Size=UDim2.new(0, IS_MOB and 32 or 26, 0, IS_MOB and 24 or 22), ZIndex=6,
         })
         b.Active = true
         MakeCorner(b, 5)
@@ -700,38 +655,39 @@ function AlterLib:Window(cfg)
     })
     bodyFrame.ClipsDescendants = true
 
+    -- Sidebar Container Structuring
     local sidebar = MakeFrame(bodyFrame, {
-        Size=UDim2.new(0,SIDE_W,1,0), BackgroundColor3=C.PANEL,
-        BackgroundTransparency=0, ZIndex=3,
+        Size=UDim2.new(0, SIDE_W, 1, 0), BackgroundColor3=C.PANEL,
+        BackgroundTransparency=0, ZIndex=30,
     })
     MakeCorner(sidebar, 10)
     MakeFrame(sidebar, {
         Size=UDim2.new(0,10,1,0), Position=UDim2.new(1,-10,0,0),
-        BackgroundColor3=C.PANEL, BackgroundTransparency=0, ZIndex=3,
+        BackgroundColor3=C.PANEL, BackgroundTransparency=0, ZIndex=30,
     })
     MakeFrame(sidebar, {
         Size=UDim2.new(1,0,0,10), BackgroundColor3=C.PANEL,
-        BackgroundTransparency=0, ZIndex=3,
+        BackgroundTransparency=0, ZIndex=30,
     })
-    MakeFrame(sidebar, {
+    local sbStroke = MakeFrame(sidebar, {
         Size=UDim2.new(0,1,1,0), Position=UDim2.new(1,0,0,0),
-        BackgroundColor3=C.BORDER, BackgroundTransparency=0, ZIndex=4,
+        BackgroundColor3=C.BORDER, BackgroundTransparency=0, ZIndex=31,
     })
 
     local brandLbl = MakeLabel(sidebar, {
         Text="ALTER", TextSize=10, Font=Enum.Font.GothamBlack,
         TextColor3=C.T_DIM, TextTransparency=0,
         TextXAlignment=Enum.TextXAlignment.Center,
-        Size=UDim2.new(1,0,0,46), ZIndex=4,
+        Size=UDim2.new(1,0,0,46), ZIndex=31,
     })
     MakeFrame(sidebar, {
         Size=UDim2.new(1,-18,0,1), Position=UDim2.new(0,9,0,45),
-        BackgroundColor3=C.BORDER, BackgroundTransparency=0, ZIndex=4,
+        BackgroundColor3=C.BORDER, BackgroundTransparency=0, ZIndex=31,
     })
 
     local tabScroll = MakeScrollFrame(sidebar, {
         Size=UDim2.new(1,0,1,-96), Position=UDim2.new(0,0,0,52),
-        ScrollBarThickness=0, ZIndex=4,
+        ScrollBarThickness=0, ZIndex=31,
     })
     MakePadding(tabScroll, 4, 4, 6, 6)
     MakeList(tabScroll, Enum.FillDirection.Vertical, 4)
@@ -739,7 +695,7 @@ function AlterLib:Window(cfg)
     local sideBottom = MakeFrame(sidebar, {
         Size = UDim2.new(1, 0, 0, 36),
         Position = UDim2.new(0, 0, 1, -36),
-        ZIndex = 4,
+        ZIndex = 31,
     })
     MakePadding(sideBottom, 0, 6, 12, 12)
 
@@ -750,7 +706,7 @@ function AlterLib:Window(cfg)
         TextColor3 = C.T_DIM,
         Size = UDim2.new(0.55, 0, 1, 0),
         Position = UDim2.new(0, 0, 0, 0),
-        ZIndex = 5,
+        ZIndex = 32,
     })
 
     task.spawn(function()
@@ -773,7 +729,7 @@ function AlterLib:Window(cfg)
         Size = UDim2.new(0.4, 0, 0, 20),
         Position = UDim2.new(0.6, 0, 0.5, -10),
         TextXAlignment = Enum.TextXAlignment.Center,
-        ZIndex = 5,
+        ZIndex = 32,
     })
     MakeCorner(dscBtn, 4)
     MakeStroke(dscBtn, C.BORDER, 1)
@@ -795,10 +751,47 @@ function AlterLib:Window(cfg)
         end
     end)
 
+    -- Content Frame Setup (Takes full width if Mobile Device Drawer layout maps out)
     local contentArea = MakeFrame(bodyFrame, {
-        Size=UDim2.new(1,-SIDE_W,1,0), Position=UDim2.new(0,SIDE_W,0,0), ZIndex=2,
+        Size=UDim2.new(1, IS_MOB and 0 or -SIDE_W, 1, 0), 
+        Position=UDim2.new(0, IS_MOB and 0 or SIDE_W, 0, 0), ZIndex=2,
     })
     contentArea.ClipsDescendants = true
+
+    -- Smooth Mobile Drawer Sidebar Interceptor
+    local sidebarOpen = false
+    local function setSidebarState(state)
+        sidebarOpen = state
+        if sidebarOpen then
+            sidebar.Visible = true
+            Tw(sidebar, TI.FAST, {Size = UDim2.new(0, SIDE_W, 1, 0)})
+        else
+            Tw(sidebar, TI.FAST, {Size = UDim2.new(0, 0, 1, 0)})
+            task.delay(TI.FAST.Time, function()
+                if not sidebarOpen then sidebar.Visible = false end
+            end)
+        end
+    end
+
+    if IS_MOB then
+        sidebar.Size = UDim2.new(0, 0, 1, 0)
+        sidebar.Visible = false
+        MakeStroke(sidebar, C.BORDER, 1)
+        
+        -- Mobile Hamburger Top Bar Toggle Button Interface Setup
+        local navBtn = MakeButton(titleBar, {
+            Text = "≡", TextSize = 18, Font = Enum.Font.GothamBold,
+            TextColor3 = C.T_PRI, BackgroundColor3 = C.ELEM, BackgroundTransparency = 0,
+            TextXAlignment = Enum.TextXAlignment.Center,
+            Size = UDim2.new(0, 32, 0, 32), Position = UDim2.new(0, 6, 0.5, -16), ZIndex = 6
+        })
+        MakeCorner(navBtn, 6)
+        MakeStroke(navBtn, C.BORDER, 1)
+        navBtn.MouseButton1Click:Connect(function()
+            Ripple(navBtn)
+            setSidebarState(not sidebarOpen)
+        end)
+    end
 
     task.defer(function()
         Tw(root, TI.SPRING, {
@@ -819,7 +812,7 @@ function AlterLib:Window(cfg)
 
         local btn = MakeButton(tabScroll, {
             Size=UDim2.new(1,0,0,ROW_H), BackgroundColor3=C.ELEM,
-            BackgroundTransparency=1, ZIndex=5,
+            BackgroundTransparency=1, ZIndex=35,
         })
         btn.Active = true
         MakeCorner(btn, 6)
@@ -827,19 +820,19 @@ function AlterLib:Window(cfg)
         local ind = MakeFrame(btn, {
             Size=UDim2.new(0,2,0,0), Position=UDim2.new(0,0,0.5,0),
             AnchorPoint=Vector2.new(0,0.5), BackgroundColor3=C.WHITE,
-            BackgroundTransparency=0, ZIndex=6,
+            BackgroundTransparency=0, ZIndex=36,
         })
         MakeCorner(ind, 1)
 
         local dot = MakeFrame(btn, {
             Size=UDim2.new(0,4,0,4), Position=UDim2.new(0,10,0.5,-2),
-            BackgroundColor3=C.T_DIM, BackgroundTransparency=0, ZIndex=6,
+            BackgroundColor3=C.T_DIM, BackgroundTransparency=0, ZIndex=36,
         })
         MakeCorner(dot, 2)
 
         local lbl = MakeLabel(btn, {
             Text=name, TextSize=11, TextColor3=C.T_DIM,
-            Size=UDim2.new(1,-22,1,0), Position=UDim2.new(0,22,0,0), ZIndex=6,
+            Size=UDim2.new(1,-22,1,0), Position=UDim2.new(0,22,0,0), ZIndex=36,
         })
 
         local panel = MakeScrollFrame(contentArea, {
@@ -874,6 +867,8 @@ function AlterLib:Window(cfg)
             Tw(ind,   TI.SPRING, {Size=UDim2.new(0,2,0,18)})
             Tw(dot,   TI.FAST,   {BackgroundColor3=C.WHITE})
             Tw(lbl,   TI.FAST,   {TextColor3=C.T_PRI})
+            
+            if IS_MOB then setSidebarState(false) end -- Autoclose menu overlay layout on tab pick
         end
 
         btn.MouseButton1Click:Connect(function() activate(); Ripple(btn) end)
@@ -1100,7 +1095,8 @@ function AlterLib:Window(cfg)
                     if not silent and cb then task.spawn(cb,state) end
                 end
 
-                local hit=MakeButton(row,{Size=UDim2.new(1,0,1,0),ZIndex=9})
+                -- High Hit-Priority Full-Row Tappable Hitbox Setup Layer Configuration
+                local hit=MakeButton(row,{Size=UDim2.new(1,0,1,0),ZIndex=15})
                 hit.Active = true
                 hit.MouseButton1Click:Connect(function()
                     Tw(thumb,TI.SNAP,{Size=UDim2.new(0,14,0,10)})
@@ -1134,7 +1130,7 @@ function AlterLib:Window(cfg)
                 local tLbl=MakeLabel(row,{ Text=text or "ToggleBind",TextSize=11,TextColor3=C.T_SEC, Size=UDim2.new(1,-130,1,0),Position=UDim2.new(0,12,0,0),ZIndex=6 })
                 local function kn(k) if not k then return "-" end return tostring(k):gsub("Enum.KeyCode.","") end
                 
-                local pill=MakeButton(row,{ Text=kn(bound),TextSize=9,Font=Enum.Font.GothamBold, TextColor3=C.T_SEC,BackgroundColor3=C.CARD,BackgroundTransparency=0, TextXAlignment=Enum.TextXAlignment.Center, Size=UDim2.new(0,56,0,20),Position=UDim2.new(1,-108,0.5,-10),ZIndex=10 })
+                local pill=MakeButton(row,{ Text=kn(bound),TextSize=9,Font=Enum.Font.GothamBold, TextColor3=C.T_SEC,BackgroundColor3=C.CARD,BackgroundTransparency=0, TextXAlignment=Enum.TextXAlignment.Center, Size=UDim2.new(0,56,0,20),Position=UDim2.new(1,-108,0.5,-10),ZIndex=16 })
                 pill.Active = true
                 MakeCorner(pill,5);MakeStroke(pill,C.BORDER,1)
                 
@@ -1191,7 +1187,7 @@ function AlterLib:Window(cfg)
                     end
                 end)
 
-                local hit=MakeButton(row,{Size=UDim2.new(1,0,1,0),ZIndex=5})
+                local hit=MakeButton(row,{Size=UDim2.new(1,0,1,0),ZIndex=15})
                 hit.Active = true
                 hit.MouseButton1Click:Connect(function() setState(not state, false);Ripple(row) end)
                 hit.MouseEnter:Connect(function() 
@@ -1217,19 +1213,28 @@ function AlterLib:Window(cfg)
                 min=min or 0;max=max or 100;step=step or 1
                 default=math.clamp(default or min,min,max)
                 local val=default
-                local wrap=ElemRow(50)
+                
+                -- Responsive structural row configurations
+                local sRowH = IS_MOB and 56 or 50
+                local wrap=ElemRow(sRowH)
                 local rowStrk = wrap:FindFirstChildOfClass("UIStroke")
-                wrap.Size=UDim2.new(1,0,0,50)
+                wrap.Size=UDim2.new(1,0,0,sRowH)
                 MakePadding(wrap,8,8,12,12)
+                
                 local topRow=MakeFrame(wrap,{Size=UDim2.new(1,0,0,16),ZIndex=6})
                 MakeLabel(topRow,{ Text=text or "Slider",TextSize=11,TextColor3=C.T_PRI, Size=UDim2.new(0.65,0,1,0),ZIndex=7 })
                 local valLbl=MakeLabel(topRow,{ TextSize=10,Font=Enum.Font.GothamBold,TextColor3=C.T_DIM, TextXAlignment=Enum.TextXAlignment.Right, Size=UDim2.new(0.35,0,1,0),Position=UDim2.new(0.65,0,0,0),ZIndex=7 })
-                local trackBg=MakeFrame(wrap,{ Size=UDim2.new(1,0,0,4),Position=UDim2.new(0,0,1,-12), BackgroundColor3=C.BORDER,BackgroundTransparency=0,ZIndex=6 })
+                
+                local trackBg=MakeFrame(wrap,{ Size=UDim2.new(1,0,0,IS_MOB and 6 or 4),Position=UDim2.new(0,0,1,IS_MOB and -14 or -12), BackgroundColor3=C.BORDER,BackgroundTransparency=0,ZIndex=6 })
                 MakeCorner(trackBg,2)
                 local fill=MakeFrame(trackBg,{ Size=UDim2.new(0,0,1,0),BackgroundColor3=C.WHITE, BackgroundTransparency=0,ZIndex=7 })
                 MakeCorner(fill,2)
-                local thumb=MakeFrame(trackBg,{ Size=UDim2.new(0,12,0,12),Position=UDim2.new(0,-6,0.5,-6), BackgroundColor3=C.WHITE,BackgroundTransparency=0,ZIndex=9 })
-                MakeCorner(thumb,6);MakeStroke(thumb,C.BORDER_LT,1)
+                
+                -- Expand physical tracking knob footprint elements dynamically on mobile scales
+                local thSz = IS_MOB and 16 or 12
+                local thOff = IS_MOB and -8 or -6
+                local thumb=MakeFrame(trackBg,{ Size=UDim2.new(0,thSz,0,thSz),Position=UDim2.new(0,thOff,0.5,thOff), BackgroundColor3=C.WHITE,BackgroundTransparency=0,ZIndex=9 })
+                MakeCorner(thumb,thSz/2);MakeStroke(thumb,C.BORDER_LT,1)
 
                 local function fmt(n)
                     if step>=1 then return tostring(math.floor(n)) end
@@ -1247,7 +1252,7 @@ function AlterLib:Window(cfg)
                     local pct=(val-min)/(max-min)
                     valLbl.Text=fmt(val)
                     Tw(fill, TI.FAST,{Size=UDim2.new(pct,0,1,0)})
-                    Tw(thumb,TI.FAST,{Position=UDim2.new(pct,-6,0.5,-6)})
+                    Tw(thumb,TI.FAST,{Position=UDim2.new(pct,thOff,0.5,thOff)})
                     if not silent and cb then task.spawn(cb,val) end
                 end
 
@@ -1261,14 +1266,17 @@ function AlterLib:Window(cfg)
                     update(min+rel*(max-min))
                 end
 
-                local trackHit=MakeButton(wrap,{ Size=UDim2.new(1,0,1,0),Position=UDim2.new(0,0,0,0),ZIndex=10 })
+                -- Over overarching hitbox tracking structure layer covers full container block height safely
+                local trackHit=MakeButton(wrap,{ Size=UDim2.new(1,0,1,0),Position=UDim2.new(0,0,0,0),ZIndex=15 })
                 trackHit.Active = true
                 trackHit.InputBegan:Connect(function(i)
                     if i.UserInputType==Enum.UserInputType.MouseButton1
                     or i.UserInputType==Enum.UserInputType.Touch then
                         dragging=true
                         local pct=(val-min)/(max-min)
-                        Tw(thumb,TI.FAST,{Size=UDim2.new(0,14,0,14),Position=UDim2.new(pct,-7,0.5,-7)})
+                        local dragSz = thSz + 2
+                        local dragOff = thOff - 1
+                        Tw(thumb,TI.FAST,{Size=UDim2.new(0,dragSz,0,dragSz),Position=UDim2.new(pct,dragOff,0.5,dragOff)})
                         Tw(wrap,TI.FAST,{BackgroundColor3=C.HOVER})
                         fromInput(i)
                     end
@@ -1279,7 +1287,7 @@ function AlterLib:Window(cfg)
                     and i.UserInputType~=Enum.UserInputType.Touch then return end
                     dragging=false
                     local pct=(val-min)/(max-min)
-                    Tw(thumb,TI.SPRING,{Size=UDim2.new(0,12,0,12),Position=UDim2.new(pct,-6,0.5,-6)})
+                    Tw(thumb,TI.SPRING,{Size=UDim2.new(0,thSz,0,thSz),Position=UDim2.new(pct,thOff,0.5,thOff)})
                     Tw(wrap,TI.FAST,{BackgroundColor3=C.ELEM})
                 end)
                 UIS.InputChanged:Connect(function(i)
@@ -1512,7 +1520,7 @@ function AlterLib:Window(cfg)
                 MakeLabel(row,{ Text=text or "Bind",TextSize=11,TextColor3=C.T_SEC, Size=UDim2.new(0.55,0,1,0),Position=UDim2.new(0,12,0,0),ZIndex=6 })
                 local function kn(k) if not k then return "-" end return tostring(k):gsub("Enum.KeyCode.","") end
                 
-                local pill=MakeButton(row,{ Text=kn(bound),TextSize=9,Font=Enum.Font.GothamBold, TextColor3=C.T_SEC,BackgroundColor3=C.CARD,BackgroundTransparency=0, TextXAlignment=Enum.TextXAlignment.Center, Size=UDim2.new(0,66,0,20),Position=UDim2.new(1,-76,0.5,-10),ZIndex=10 })
+                local pill=MakeButton(row,{ Text=kn(bound),TextSize=9,Font=Enum.Font.GothamBold, TextColor3=C.T_SEC,BackgroundColor3=C.CARD,BackgroundTransparency=0, TextXAlignment=Enum.TextXAlignment.Center, Size=UDim2.new(0,66,0,20),Position=UDim2.new(1,-76,0.5,-10),ZIndex=16 })
                 pill.Active = true
                 MakeCorner(pill,5);MakeStroke(pill,C.BORDER,1)
 
@@ -1544,7 +1552,7 @@ function AlterLib:Window(cfg)
                     end
                 end)
 
-                local hit=MakeButton(row,{Size=UDim2.new(1,0,1,0),ZIndex=5})
+                local hit=MakeButton(row,{Size=UDim2.new(1,0,1,0),ZIndex=15})
                 hit.Active = true
                 hit.MouseButton1Click:Connect(function() if cb and bound then task.spawn(cb, bound) Ripple(row) end end)
                 hit.MouseEnter:Connect(function() 
