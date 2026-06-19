@@ -1,4 +1,4 @@
--- ALTER UI Library v6.7 (High-Fidelity Visual Pass - Optimized)
+-- ALTER UI Library v6.7 (High-Fidelity Visual Pass - Fully Optimized)
 -- Premium Features: Instant Section Collapsing, UI Toggle Animations, Smooth Window Physics.
 
 local AlterLib = {}
@@ -32,12 +32,13 @@ local C = {
 }
 AlterLib.Colors = C
 
+-- Optimized Responsive Animation Curve Timings
 local TI = {
-    SNAP   = TweenInfo.new(0.04, Enum.EasingStyle.Linear),
-    FAST   = TweenInfo.new(0.12, Enum.EasingStyle.Cubic,   Enum.EasingDirection.Out),
-    MED    = TweenInfo.new(0.22, Enum.EasingStyle.Cubic,   Enum.EasingDirection.Out),
-    SLOW   = TweenInfo.new(0.36, Enum.EasingStyle.Cubic,   Enum.EasingDirection.Out),
-    SPRING = TweenInfo.new(0.42, Enum.EasingStyle.Back,    Enum.EasingDirection.Out),
+    SNAP   = TweenInfo.new(0.02, Enum.EasingStyle.Linear),
+    FAST   = TweenInfo.new(0.10, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+    MED    = TweenInfo.new(0.20, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+    SLOW   = TweenInfo.new(0.30, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+    SPRING = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
 }
 
 local TWEENABLE = {
@@ -255,11 +256,11 @@ local function Ripple(host)
     r.Parent = host
     MakeCorner(r, 9999)
     
-    Tw(r, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+    Tw(r, TweenInfo.new(0.30, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
         Size = UDim2.new(0, sz, 0, sz),
         BackgroundTransparency = 1,
     })
-    task.delay(0.38, function()
+    task.delay(0.32, function()
         pcall(function() r:Destroy() end)
         pcall(function() host.ClipsDescendants = wasClip end)
     end)
@@ -453,7 +454,7 @@ function AlterLib:Notify(cfg)
             Position               = UDim2.new(1, 10, 1, 0),
             BackgroundTransparency = 1,
         })
-        task.delay(0.25, function()
+        task.delay(0.20, function()
             pcall(function() card:Destroy() end)
         end)
     end)
@@ -508,7 +509,7 @@ function AlterLib:Prompt(cfg)
     local function closePrompt(cb)
         Tw(card,     TI.MED, {Size=UDim2.new(0,340,0,0)})
         Tw(backdrop, TI.MED, {BackgroundTransparency=1})
-        task.delay(0.25, function()
+        task.delay(0.20, function()
             if cb then pcall(cb) end
             pcall(function() sg:Destroy() end)
         end)
@@ -602,7 +603,7 @@ function AlterLib:Window(cfg)
             BackgroundTransparency = 1,
         })
         Tw(titleBar, TI.FAST, {BackgroundTransparency = 1})
-        task.delay(0.28, function()
+        task.delay(0.25, function()
             pcall(function() sg:Destroy() end)
         end)
     end
@@ -620,7 +621,7 @@ function AlterLib:Window(cfg)
                 Size = UDim2.new(0, WIN_W, 0, 0),
                 BackgroundTransparency = 1
             })
-            task.delay(0.22, function()
+            task.delay(0.20, function()
                 if not visible then root.Visible = false end
             end)
         end
@@ -1331,7 +1332,8 @@ function AlterLib:Window(cfg)
                 opts=opts or {}
                 local ITEM_H=ROW_H-4
                 
-                local ddWrap=MakeFrame(elems,{ Size=UDim2.new(1,0,0,ROW_H),BackgroundColor3=C.ELEM, BackgroundTransparency=0,ZIndex=10, AutomaticSize = Enum.AutomaticSize.Y })
+                local ddWrap=MakeFrame(elems,{ Size=UDim2.new(1,0,0,ROW_H),BackgroundColor3=C.ELEM, BackgroundTransparency=0,ZIndex=10 })
+                ddWrap.ClipsDescendants = true
                 MakeCorner(ddWrap,7);local ddStrk = MakeStroke(ddWrap,C.BORDER,1)
                 
                 local ddHdr=MakeButton(ddWrap,{Size=UDim2.new(1,0,0,ROW_H),ZIndex=11})
@@ -1370,18 +1372,15 @@ function AlterLib:Window(cfg)
                     if open then
                         buildOpts()
                         ddPanel.Visible=true
-                        ddPanel.AutomaticSize = Enum.AutomaticSize.None
-                        ddPanel.Size = UDim2.new(1, 0, 0, 0)
                         local itemsCount = #opts
                         local calcHeight = math.clamp((itemsCount * ITEM_H) + ((itemsCount - 1) * 2) + 12, 0, 134)
                         
                         Tw(chev,TI.MED,{Rotation=180, TextColor3=C.WHITE})
-                        Tw(ddWrap,TI.FAST,{BackgroundColor3=C.HOVER})
+                        Tw(ddWrap,TI.FAST,{BackgroundColor3=C.HOVER, Size=UDim2.new(1,0,0,ROW_H + 2 + calcHeight)})
                         Tw(ddPanel,TI.MED,{Size=UDim2.new(1,0,0,calcHeight)})
                     else
-                        ddPanel.AutomaticSize = Enum.AutomaticSize.None
                         Tw(chev,TI.MED,{Rotation=0, TextColor3=C.T_DIM})
-                        Tw(ddWrap,TI.FAST,{BackgroundColor3=C.ELEM})
+                        Tw(ddWrap,TI.FAST,{BackgroundColor3=C.ELEM, Size=UDim2.new(1,0,0,ROW_H)})
                         Tw(ddPanel,TI.MED,{Size=UDim2.new(1,0,0,0)})
                         task.delay(TI.MED.Time, function() if not open then ddPanel.Visible = false end end)
                     end
@@ -1412,7 +1411,8 @@ function AlterLib:Window(cfg)
                 local obj={};local selected={};local open=false
                 opts=opts or {}
                 local ITEM_H=ROW_H-4
-                local ddWrap=MakeFrame(elems,{ Size=UDim2.new(1,0,0,ROW_H),BackgroundColor3=C.ELEM, BackgroundTransparency=0,ZIndex=10, AutomaticSize = Enum.AutomaticSize.Y })
+                local ddWrap=MakeFrame(elems,{ Size=UDim2.new(1,0,0,ROW_H),BackgroundColor3=C.ELEM, BackgroundTransparency=0,ZIndex=10 })
+                ddWrap.ClipsDescendants = true
                 MakeCorner(ddWrap,7);local ddStrk = MakeStroke(ddWrap,C.BORDER,1)
                 
                 local ddHdr=MakeButton(ddWrap,{Size=UDim2.new(1,0,0,ROW_H),ZIndex=11})
@@ -1464,18 +1464,15 @@ function AlterLib:Window(cfg)
                     if open then
                         buildOpts()
                         ddPanel.Visible=true
-                        ddPanel.AutomaticSize = Enum.AutomaticSize.None
-                        ddPanel.Size = UDim2.new(1, 0, 0, 0)
                         local itemsCount = #opts
                         local calcHeight = math.clamp((itemsCount * ITEM_H) + ((itemsCount - 1) * 2) + 12, 0, 134)
                         
                         Tw(chev,TI.MED,{Rotation=180, TextColor3=C.WHITE})
-                        Tw(ddWrap,TI.FAST,{BackgroundColor3=C.HOVER})
+                        Tw(ddWrap,TI.FAST,{BackgroundColor3=C.HOVER, Size=UDim2.new(1,0,0,ROW_H + 2 + calcHeight)})
                         Tw(ddPanel,TI.MED,{Size=UDim2.new(1,0,0,calcHeight)})
                     else
-                        ddPanel.AutomaticSize = Enum.AutomaticSize.None
                         Tw(chev,TI.MED,{Rotation=0, TextColor3=C.T_DIM})
-                        Tw(ddWrap,TI.FAST,{BackgroundColor3=C.ELEM})
+                        Tw(ddWrap,TI.FAST,{BackgroundColor3=C.ELEM, Size=UDim2.new(1,0,0,ROW_H)})
                         Tw(ddPanel,TI.MED,{Size=UDim2.new(1,0,0,0)})
                         task.delay(TI.MED.Time, function() if not open then ddPanel.Visible = false end end)
                     end
