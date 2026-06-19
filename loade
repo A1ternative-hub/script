@@ -578,7 +578,7 @@ function AlterLib:Window(cfg)
         BackgroundColor3=C.PANEL, BackgroundTransparency=0, ZIndex=4,
     })
 
-    -- Title layout adjustments
+    -- Title text layout properties
     local hubLbl = MakeLabel(titleBar, {
         Text=cfg.Name or "ALTER", TextSize=14, Font=Enum.Font.GothamBlack,
         TextColor3=C.T_PRI, TextTransparency=0, RichText=true,
@@ -800,7 +800,6 @@ function AlterLib:Window(cfg)
         sidebar.Visible = false
         MakeStroke(sidebar, C.BORDER, 1)
         
-        -- Safe text alternative for Hamburger menu
         local navBtn = MakeButton(titleBar, {
             Text = "=", TextSize = 18, Font = Enum.Font.GothamBold,
             TextColor3 = C.T_PRI, BackgroundColor3 = C.ELEM, BackgroundTransparency = 0,
@@ -1050,7 +1049,6 @@ function AlterLib:Window(cfg)
                 MakeCorner(glow, 1)
                 MakeLabel(row, { Text=text or "Button", TextSize=11, TextColor3=C.T_SEC, Size=UDim2.new(1,-36,1,0), Position=UDim2.new(0,12,0,0), ZIndex=6 })
                 
-                -- Safe character alternative for button arrow
                 local arrow = MakeLabel(row, { Text=">", TextSize=11, Font=Enum.Font.GothamBold, TextColor3=C.T_DIM, TextXAlignment=Enum.TextXAlignment.Center, Size=UDim2.new(0,22,1,0), Position=UDim2.new(1,-26,0,0), ZIndex=6 })
                 
                 row.MouseEnter:Connect(function()
@@ -1211,7 +1209,8 @@ function AlterLib:Window(cfg)
                     end
                 end)
 
-                local hit=MakeButton(row,{Size=UDim2.new(1,0,1,0),ZIndex=15})
+                -- Dynamic X offset bounding configuration to prevent button overlaps
+                local hit=MakeButton(row,{Size=UDim2.new(1,-115,1,0),ZIndex=15})
                 hit.Active = true
                 hit.MouseButton1Click:Connect(function() setState(not state, false);Ripple(row) end)
                 hit.MouseEnter:Connect(function() 
@@ -1370,7 +1369,6 @@ function AlterLib:Window(cfg)
                 MakeLabel(ddHdr,{ Text=text or "Dropdown",TextSize=11,TextColor3=C.T_SEC, Size=UDim2.new(0.5,0,1,0),Position=UDim2.new(0,12,0,0),ZIndex=12 })
                 local selLbl=MakeLabel(ddHdr,{ Text="None",TextSize=11,Font=Enum.Font.GothamBold,TextColor3=C.T_PRI, TextXAlignment=Enum.TextXAlignment.Right, Size=UDim2.new(0.42,0,1,0),Position=UDim2.new(0.5,0,0,0),ZIndex=12 })
                 
-                -- Safe string alternative for dropdown chevron
                 local chev=MakeLabel(ddHdr,{ Text="v",TextSize=11,Font=Enum.Font.GothamBold,TextColor3=C.T_DIM, TextXAlignment=Enum.TextXAlignment.Center, Size=UDim2.new(0,20,1,0),Position=UDim2.new(1,-22,0,0),ZIndex=12 })
                 
                 local ddPanel=MakeScrollFrame(ddWrap,{ Size=UDim2.new(1,0,0,0),Position=UDim2.new(0,0,0,ROW_H+2), ScrollBarThickness=1,ZIndex=20, AutomaticSize = Enum.AutomaticSize.None })
@@ -1390,7 +1388,6 @@ function AlterLib:Window(cfg)
                         ob.Active = true
                         MakePadding(ob,0,0,8,0);MakeCorner(ob,5)
                         if isSel then
-                            -- Safe checkmark alternative
                             MakeLabel(ob,{ Text="*",TextSize=11,Font=Enum.Font.GothamBold, TextColor3=C.WHITE,TextXAlignment=Enum.TextXAlignment.Center, Size=UDim2.new(0,16,1,0),Position=UDim2.new(1,-18,0,0),ZIndex=23 })
                         end
                         ob.MouseEnter:Connect(function() if not isSel then Tw(ob,TI.FAST,{BackgroundColor3=C.HOVER}) end end)
@@ -1452,7 +1449,6 @@ function AlterLib:Window(cfg)
                 MakeLabel(ddHdr,{ Text=text or "Multi Select",TextSize=11,TextColor3=C.T_SEC, Size=UDim2.new(0.55,0,1,0),Position=UDim2.new(0,12,0,0),ZIndex=12 })
                 local countLbl=MakeLabel(ddHdr,{ Text="None",TextSize=10,Font=Enum.Font.GothamBold,TextColor3=C.T_DIM, TextXAlignment=Enum.TextXAlignment.Right, Size=UDim2.new(0.38,0,1,0),Position=UDim2.new(0.55,0,0,0),ZIndex=12 })
                 
-                -- Safe chevron alternative
                 local chev=MakeLabel(ddHdr,{ Text="v",TextSize=11,Font=Enum.Font.GothamBold,TextColor3=C.T_DIM, TextXAlignment=Enum.TextXAlignment.Center, Size=UDim2.new(0,20,1,0),Position=UDim2.new(1,-22,0,0),ZIndex=12 })
                 
                 local ddPanel=MakeScrollFrame(ddWrap,{ Size=UDim2.new(1,0,0,0),Position=UDim2.new(0,0,0,ROW_H+2), ScrollBarThickness=1,ZIndex=20, AutomaticSize = Enum.AutomaticSize.None })
@@ -1479,7 +1475,6 @@ function AlterLib:Window(cfg)
                         local chkBox=MakeFrame(ob,{ Size=UDim2.new(0,12,0,12),Position=UDim2.new(0,8,0.5,-6), BackgroundColor3=isSel and C.WHITE or C.BORDER, BackgroundTransparency=0,ZIndex=23 })
                         MakeCorner(chkBox,3)
                         if isSel then
-                            -- Safe select indicator alternative
                             MakeLabel(chkBox,{ Text="*",TextSize=10,Font=Enum.Font.GothamBold, TextColor3=C.BLACK,TextXAlignment=Enum.TextXAlignment.Center, Size=UDim2.new(1,0,1,0),ZIndex=24 })
                         end
                         MakeLabel(ob,{ Text=tostring(opt),TextSize=11, Font=isSel and Enum.Font.GothamBold or Enum.Font.GothamMedium, TextColor3=isSel and C.T_PRI or C.T_SEC, Size=UDim2.new(1,-32,1,0),Position=UDim2.new(0,28,0,0),ZIndex=23 })
@@ -1544,7 +1539,6 @@ function AlterLib:Window(cfg)
                 local row=ElemRow(ROW_H)
                 local rowStrk = row:FindFirstChildOfClass("UIStroke")
                 
-                -- Check if this specific element handles the global system menu toggle configurations
                 local cleanText = string.lower(text or "")
                 local isMenuBind = string.find(cleanText, "toggle") or string.find(cleanText, "hide") or string.find(cleanText, "menu")
                 
@@ -1586,15 +1580,14 @@ function AlterLib:Window(cfg)
                     if binding and i.UserInputType==Enum.UserInputType.Keyboard then
                         setBind(i.KeyCode, false)
                     elseif not binding and bound and i.KeyCode==bound then
-                        if isMenuBind then
-                            toggleUIVisibility()
-                        else
+                        if not isMenuBind then
                             if cb then task.spawn(cb,bound) end
                         end
                     end
                 end)
 
-                local hit=MakeButton(row,{Size=UDim2.new(1,0,1,0),ZIndex=15})
+                -- Offset width parameters layout limits to cleanly insulate button tap target interactions
+                local hit=MakeButton(row,{Size=UDim2.new(1,-85,1,0),ZIndex=15})
                 hit.Active = true
                 hit.MouseButton1Click:Connect(function() 
                     if isMenuBind then 
@@ -1619,11 +1612,6 @@ function AlterLib:Window(cfg)
                 cfgSys:Register((text or "bind")..#cfgSys.entries,
                     function() return kn(bound) end,
                     function(v) pcall(function() setBind(Enum.KeyCode[v], false) end) end)
-                
-                -- Fire callback once on startup to allow immediate initialization out of the box
-                task.spawn(function()
-                    if cb then pcall(cb, default) end
-                end)
                 
                 return obj
             end
