@@ -1,4 +1,4 @@
--- ALTER UI Library v6.7 (High-Fidelity Visual Pass)
+-- ALTER UI Library v6.7 (High-Fidelity Visual Pass - Optimized)
 -- Premium Features: Instant Section Collapsing, UI Toggle Animations, Smooth Window Physics.
 
 local AlterLib = {}
@@ -13,22 +13,22 @@ local LP      = Players.LocalPlayer
 
 local startTime = os.time()
 
--- Premium Dark Tech Accent Palette
+-- Clean Strict Monochrome Palette
 local C = {
-    BG        = Color3.fromRGB(11, 12, 15),
-    PANEL     = Color3.fromRGB(16, 18, 22),
-    CARD      = Color3.fromRGB(22, 25, 30),
-    ELEM      = Color3.fromRGB(28, 32, 38),
-    HOVER     = Color3.fromRGB(36, 41, 49),
-    ACTIVE    = Color3.fromRGB(44, 50, 60),
-    BORDER    = Color3.fromRGB(34, 38, 46),
-    BORDER_LT = Color3.fromRGB(56, 62, 75),
+    BG        = Color3.fromRGB(10, 10, 10),
+    PANEL     = Color3.fromRGB(18, 18, 18),
+    CARD      = Color3.fromRGB(26, 26, 26),
+    ELEM      = Color3.fromRGB(32, 32, 32),
+    HOVER     = Color3.fromRGB(45, 45, 45),
+    ACTIVE    = Color3.fromRGB(60, 60, 60),
+    BORDER    = Color3.fromRGB(40, 40, 40),
+    BORDER_LT = Color3.fromRGB(80, 80, 80),
     WHITE     = Color3.fromRGB(255, 255, 255),
     BLACK     = Color3.fromRGB(0,   0,   0),
-    T_PRI     = Color3.fromRGB(240, 242, 245),
-    T_SEC     = Color3.fromRGB(145, 152, 163),
-    T_DIM     = Color3.fromRGB(82, 89, 102),
-    ACC_OFF   = Color3.fromRGB(36, 40, 48),
+    T_PRI     = Color3.fromRGB(255, 255, 255),
+    T_SEC     = Color3.fromRGB(170, 170, 170),
+    T_DIM     = Color3.fromRGB(100, 100, 100),
+    ACC_OFF   = Color3.fromRGB(30, 30, 30),
 }
 AlterLib.Colors = C
 
@@ -295,7 +295,6 @@ end
 local ConfigSys = {}
 ConfigSys.__index = ConfigSys
 
--- [Methods preserved structurally to ensure absolute configuration backward-compatibility]
 function ConfigSys.new(folder)
     local s = setmetatable({}, ConfigSys)
     s.folder  = folder or "AlterHub"
@@ -482,10 +481,6 @@ function AlterLib:Prompt(cfg)
     MakeCorner(card, 8)
     MakeStroke(card, C.BORDER_LT, 1)
 
-    MakeFrame(card, {
-        Size=UDim2.new(1,0,0,2), BackgroundColor3=C.WHITE,
-        BackgroundTransparency=0, ZIndex=105,
-    })
     local hdr = MakeFrame(card, {
         Size=UDim2.new(1,0,0,44), BackgroundColor3=C.CARD,
         BackgroundTransparency=0, ZIndex=102,
@@ -532,7 +527,7 @@ function AlterLib:Prompt(cfg)
         if not primary then MakeStroke(b, C.BORDER, 1) end
         b.MouseButton1Click:Connect(function() closePrompt(cb) end)
         b.MouseEnter:Connect(function()
-            Tw(b, TI.FAST, {BackgroundColor3=primary and Color3.fromRGB(215,215,215) or C.HOVER})
+            Tw(b, TI.FAST, {BackgroundColor3=primary and Color3.fromRGB(200,200,200) or C.HOVER})
         end)
         b.MouseLeave:Connect(function()
             Tw(b, TI.FAST, {BackgroundColor3=primary and C.WHITE or C.ELEM})
@@ -541,7 +536,7 @@ function AlterLib:Prompt(cfg)
     end
 
     PBtn(cfg.NoText  or "Cancel",  false, cfg.No)
-    PBtn(cfg.YesText or "Confirm", primary,  cfg.Yes)
+    PBtn(cfg.YesText or "Confirm", true,  cfg.Yes)
     backdrop.MouseButton1Click:Connect(function() closePrompt(nil) end)
     Tw(card, TI.SPRING, {Size=UDim2.new(0,340,0,142)})
 end
@@ -581,15 +576,6 @@ function AlterLib:Window(cfg)
         BackgroundColor3=C.PANEL, BackgroundTransparency=0, ZIndex=4,
     })
 
-    -- ✅ Top Accent Line Scaling Fix: Repositioned with sleek interior margin offsets to prevent corner radius bleeding
-    local accentLine = MakeFrame(titleBar, {
-        Size=UDim2.new(0,0,0,1), 
-        Position=UDim2.new(0,12,1,-1),
-        BackgroundColor3=C.WHITE,
-        BackgroundTransparency=0, ZIndex=6,
-    })
-    MakeCorner(accentLine, 1)
-
     local hubLbl = MakeLabel(titleBar, {
         Text=cfg.Name or "ALTER", TextSize=14, Font=Enum.Font.GothamBlack,
         TextColor3=C.T_PRI, TextTransparency=0, RichText=true,
@@ -616,7 +602,6 @@ function AlterLib:Window(cfg)
             BackgroundTransparency = 1,
         })
         Tw(titleBar, TI.FAST, {BackgroundTransparency = 1})
-        Tw(accentLine, TI.FAST, {BackgroundTransparency = 1})
         task.delay(0.28, function()
             pcall(function() sg:Destroy() end)
         end)
@@ -818,9 +803,6 @@ function AlterLib:Window(cfg)
         Tw(root, TI.SPRING, {
             Size=UDim2.new(0,WIN_W,0,WIN_H), BackgroundTransparency=0,
         })
-        task.delay(0.18, function()
-            Tw(accentLine, TI.SLOW, {Size=UDim2.new(1,-24,0,1)})
-        end)
     end)
 
     local winObj = {_tabs={}, Config=cfgSys}
@@ -879,7 +861,7 @@ function AlterLib:Window(cfg)
                 if t ~= tabObj then
                     t._panel.Visible = false
                     Tw(t._btn, TI.FAST, {BackgroundTransparency=1})
-                    Tw(t._ind, TI.FAST, {Size=UDim2.new(0,2,0,0)})
+                    t._ind.Size = UDim2.new(0,2,0,0)
                     Tw(t._dot, TI.FAST, {BackgroundColor3=C.T_DIM})
                     Tw(t._lbl, TI.FAST, {TextColor3=C.T_DIM})
                 end
@@ -916,7 +898,7 @@ function AlterLib:Window(cfg)
                 BackgroundColor3       = C.CARD,
                 BackgroundTransparency = 0,
                 AutomaticSize          = Enum.AutomaticSize.Y,
-                ZIndex                 = 3,
+                ZIndex                  = 3,
             })
             wrap.ClipsDescendants = true
             MakeCorner(wrap, 8)
@@ -1080,7 +1062,6 @@ function AlterLib:Window(cfg)
                 
                 local tLbl=MakeLabel(row, { Text=text or "Toggle", TextSize=11, TextColor3=C.T_SEC, Size=UDim2.new(1,-58,1,0), Position=UDim2.new(0,12,0,0), ZIndex=6 })
                 
-                -- ✅ Track and Thumb Visual Overhaul: Centered via vertical AnchorPoint logic for structural alignment balance
                 local track=MakeFrame(row, { 
                     Size=UDim2.new(0,34,0,18), 
                     Position=UDim2.new(1,-46,0.5,0), 
@@ -1103,28 +1084,27 @@ function AlterLib:Window(cfg)
                 local function setState(v,silent)
                     state=v
                     if state then
-                        Tw(track,TI.MED,   {BackgroundColor3=Color3.fromRGB(44, 48, 58)})
+                        Tw(track,TI.MED,   {BackgroundColor3=Color3.fromRGB(70, 70, 70)})
                         Tw(fill, TI.MED,   {Size=UDim2.new(1,0,1,0)})
-                        Tw(thumb,TI.SPRING,{Position=UDim2.new(0,19,0.5,0),BackgroundColor3=C.WHITE})
+                        Tw(thumb,TI.MED,   {Position=UDim2.new(0,19,0.5,0),BackgroundColor3=C.WHITE})
                         Tw(tLbl, TI.FAST,  {TextColor3=C.T_PRI})
-                        Tw(row,  TI.FAST,  {BackgroundColor3=Color3.fromRGB(33, 38, 46)})
+                        Tw(row,  TI.FAST,  {BackgroundColor3=Color3.fromRGB(40, 40, 40)})
                     else
                         Tw(track,TI.MED,   {BackgroundColor3=C.ACC_OFF})
                         Tw(fill, TI.MED,   {Size=UDim2.new(0,0,1,0)})
-                        Tw(thumb,TI.SPRING,{Position=UDim2.new(0,3,0.5,0),BackgroundColor3=C.T_DIM})
+                        Tw(thumb,TI.MED,   {Position=UDim2.new(0,3,0.5,0),BackgroundColor3=C.T_DIM})
                         Tw(tLbl, TI.FAST,  {TextColor3=C.T_SEC})
                         Tw(row,  TI.FAST,  {BackgroundColor3=C.ELEM})
                     end
                     if not silent and cb then task.spawn(cb,state) end
                 end
 
-                -- ✅ Click Hitbox Fix: Overarching button intercepts hits seamlessly across the entire element container area
                 local hit=MakeButton(row,{Size=UDim2.new(1,0,1,0),ZIndex=9})
                 hit.Active = true
                 hit.MouseButton1Click:Connect(function()
                     Tw(thumb,TI.SNAP,{Size=UDim2.new(0,14,0,10)})
                     task.delay(0.06,function()
-                        Tw(thumb,TI.SPRING,{Size=UDim2.new(0,12,0,12)})
+                        Tw(thumb,TI.MED,{Size=UDim2.new(0,12,0,12)})
                         setState(not state)
                     end)
                     Ripple(row)
@@ -1153,7 +1133,6 @@ function AlterLib:Window(cfg)
                 local tLbl=MakeLabel(row,{ Text=text or "ToggleBind",TextSize=11,TextColor3=C.T_SEC, Size=UDim2.new(1,-130,1,0),Position=UDim2.new(0,12,0,0),ZIndex=6 })
                 local function kn(k) if not k then return "-" end return tostring(k):gsub("Enum.KeyCode.","") end
                 
-                -- pill has ZIndex=10 to reliably take inputs cleanly over background container click blocks
                 local pill=MakeButton(row,{ Text=kn(bound),TextSize=9,Font=Enum.Font.GothamBold, TextColor3=C.T_SEC,BackgroundColor3=C.CARD,BackgroundTransparency=0, TextXAlignment=Enum.TextXAlignment.Center, Size=UDim2.new(0,56,0,20),Position=UDim2.new(1,-108,0.5,-10),ZIndex=10 })
                 pill.Active = true
                 MakeCorner(pill,5);MakeStroke(pill,C.BORDER,1)
@@ -1168,15 +1147,15 @@ function AlterLib:Window(cfg)
                 local function setState(v,silent)
                     state=v
                     if state then
-                        Tw(track,TI.MED,{BackgroundColor3=Color3.fromRGB(44, 48, 58)})
+                        Tw(track,TI.MED,{BackgroundColor3=Color3.fromRGB(70, 70, 70)})
                         Tw(fill,TI.MED,{Size=UDim2.new(1,0,1,0)})
-                        Tw(thumb,TI.SPRING,{Position=UDim2.new(0,19,0.5,0),BackgroundColor3=C.WHITE})
+                        Tw(thumb,TI.MED,{Position=UDim2.new(0,19,0.5,0),BackgroundColor3=C.WHITE})
                         Tw(tLbl,TI.FAST,{TextColor3=C.T_PRI})
-                        Tw(row,TI.FAST,{BackgroundColor3=Color3.fromRGB(33, 38, 46)})
+                        Tw(row,TI.FAST,{BackgroundColor3=Color3.fromRGB(40, 40, 40)})
                     else
                         Tw(track,TI.MED,{BackgroundColor3=C.ACC_OFF})
                         Tw(fill,TI.MED,{Size=UDim2.new(0,0,1,0)})
-                        Tw(thumb,TI.SPRING,{Position=UDim2.new(0,3,0.5,0),BackgroundColor3=C.T_DIM})
+                        Tw(thumb,TI.MED,{Position=UDim2.new(0,3,0.5,0),BackgroundColor3=C.T_DIM})
                         Tw(tLbl,TI.FAST,{TextColor3=C.T_SEC})
                         Tw(row,TI.FAST,{BackgroundColor3=C.ELEM})
                     end
@@ -1211,7 +1190,6 @@ function AlterLib:Window(cfg)
                     end
                 end)
 
-                -- ✅ Full Hitbox Setup: Entire background registers clicks effortlessly while preserving custom key configuration priorities
                 local hit=MakeButton(row,{Size=UDim2.new(1,0,1,0),ZIndex=5})
                 hit.Active = true
                 hit.MouseButton1Click:Connect(function() setState(not state, false);Ripple(row) end)
@@ -1387,7 +1365,6 @@ function AlterLib:Window(cfg)
                     end
                 end
 
-                -- ✅ Smooth Collapse Action Pass: Removes delay glitches completely by calculation-clamping sizes smoothly before vis-swaps
                 local function toggleDD()
                     open=not open
                     if open then
@@ -1401,7 +1378,6 @@ function AlterLib:Window(cfg)
                         Tw(chev,TI.MED,{Rotation=180, TextColor3=C.WHITE})
                         Tw(ddWrap,TI.FAST,{BackgroundColor3=C.HOVER})
                         Tw(ddPanel,TI.MED,{Size=UDim2.new(1,0,0,calcHeight)})
-                        task.delay(TI.MED.Time, function() if open then ddPanel.AutomaticSize = Enum.AutomaticSize.Y end end)
                     else
                         ddPanel.AutomaticSize = Enum.AutomaticSize.None
                         Tw(chev,TI.MED,{Rotation=0, TextColor3=C.T_DIM})
@@ -1483,7 +1459,6 @@ function AlterLib:Window(cfg)
                     end
                 end
 
-                -- ✅ Smooth Multi-Collapse Pass: Tweens dimensions dynamically to guarantee fluid performance on execution closes
                 local function toggleDD()
                     open=not open
                     if open then
@@ -1497,7 +1472,6 @@ function AlterLib:Window(cfg)
                         Tw(chev,TI.MED,{Rotation=180, TextColor3=C.WHITE})
                         Tw(ddWrap,TI.FAST,{BackgroundColor3=C.HOVER})
                         Tw(ddPanel,TI.MED,{Size=UDim2.new(1,0,0,calcHeight)})
-                        task.delay(TI.MED.Time, function() if open then ddPanel.AutomaticSize = Enum.AutomaticSize.Y end end)
                     else
                         ddPanel.AutomaticSize = Enum.AutomaticSize.None
                         Tw(chev,TI.MED,{Rotation=0, TextColor3=C.T_DIM})
@@ -1541,7 +1515,6 @@ function AlterLib:Window(cfg)
                 MakeLabel(row,{ Text=text or "Bind",TextSize=11,TextColor3=C.T_SEC, Size=UDim2.new(0.55,0,1,0),Position=UDim2.new(0,12,0,0),ZIndex=6 })
                 local function kn(k) if not k then return "-" end return tostring(k):gsub("Enum.KeyCode.","") end
                 
-                -- pill has ZIndex=10 to intercept input binds beautifully without capturing row clicks
                 local pill=MakeButton(row,{ Text=kn(bound),TextSize=9,Font=Enum.Font.GothamBold, TextColor3=C.T_SEC,BackgroundColor3=C.CARD,BackgroundTransparency=0, TextXAlignment=Enum.TextXAlignment.Center, Size=UDim2.new(0,66,0,20),Position=UDim2.new(1,-76,0.5,-10),ZIndex=10 })
                 pill.Active = true
                 MakeCorner(pill,5);MakeStroke(pill,C.BORDER,1)
@@ -1574,7 +1547,6 @@ function AlterLib:Window(cfg)
                     end
                 end)
 
-                -- ✅ Expanded Full Hitbox target pass configuration
                 local hit=MakeButton(row,{Size=UDim2.new(1,0,1,0),ZIndex=5})
                 hit.Active = true
                 hit.MouseButton1Click:Connect(function() if cb and bound then task.spawn(cb, bound) Ripple(row) end end)
