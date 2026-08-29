@@ -192,24 +192,24 @@ AlterLib.IsTablet = IS_TABLET
 AlterLib.IsConsole = IS_CONSOLE
 
 local MET = {
-	TITLE_H = IS_MOB and 50 or 46,
-	ROW_H = IS_MOB and 42 or 34,
-	TAB_H = IS_MOB and 44 or 36,
+	TITLE_H = IS_MOB and 48 or 44,
+	ROW_H = IS_MOB and 40 or 32,
+	TAB_H = IS_MOB and 44 or 34,
 	SEC_HDR_H = IS_MOB and 40 or 36,
-	SIDE_W = IS_MOB and 176 or 158,
-	SIDE_FOOT = IS_MOB and 92 or 84,
-	F_TITLE = IS_MOB and 16 or 15,
-	F_ROW = IS_MOB and 13 or 12,
-	F_SUB = IS_MOB and 12 or 11,
-	F_TINY = IS_MOB and 11 or 10,
-	SW_W = IS_MOB and 44 or 36,
-	SW_H = IS_MOB and 24 or 19,
-	PILL_W = IS_MOB and 64 or 58,
-	PILL_H = IS_MOB and 24 or 21,
+	SIDE_W = IS_MOB and 168 or 148,
+	SIDE_FOOT = IS_MOB and 88 or 78,
+	F_TITLE = IS_MOB and 15 or 14,
+	F_ROW = IS_MOB and 13 or 11,
+	F_SUB = IS_MOB and 12 or 10,
+	F_TINY = IS_MOB and 10 or 9,
+	SW_W = IS_MOB and 42 or 34,
+	SW_H = IS_MOB and 24 or 18,
+	PILL_W = IS_MOB and 62 or 56,
+	PILL_H = IS_MOB and 24 or 20,
 	PAD = IS_MOB and 10 or 12,
-	GAP = IS_MOB and 8 or 9,
-	DD_MAX = IS_MOB and 220 or 200,
-	FAB = IS_MOB and 48 or 40,
+	GAP = IS_MOB and 7 or 8,
+	DD_MAX = IS_MOB and 200 or 160,
+	FAB = IS_MOB and 46 or 38,
 	RAD = 8,
 	RAD_SM = 6,
 }
@@ -2028,19 +2028,16 @@ function AlterLib:Window(cfg)
 	local function CurScale() return currentScale end
 
 	local WIN_W, WIN_H, SIDE_W
-	local userW, userH
 
 	local function computeSize()
 		local vp = Viewport()
 		local s = math.max(currentScale, 0.35)
 		local maxW = (vp.X - (IS_MOB and 16 or 40)) / s
-		local maxH = (vp.Y - (IS_MOB and 76 or 70)) / s
-		local fitW = (vp.X * (IS_MOB and 0.96 or 0.66)) / s
-		local fitH = (vp.Y * (IS_MOB and 0.80 or 0.74)) / s
-		local dw = math.min(maxW, fitW, IS_MOB and 400 or 640)
-		local dh = math.min(maxH, fitH, IS_MOB and 486 or 520)
-		WIN_W = math.floor(math.clamp(userW or dw, 300, math.max(300, maxW)))
-		WIN_H = math.floor(math.clamp(userH or dh, 240, math.max(240, maxH)))
+		local maxH = (vp.Y - (IS_MOB and 90 or 80)) / s
+		local wantW = tonumber(cfg.Width) or (IS_MOB and 380 or 620)
+		local wantH = tonumber(cfg.Height) or (IS_MOB and 460 or 490)
+		WIN_W = math.floor(math.max(300, math.min(maxW, wantW)))
+		WIN_H = math.floor(math.max(240, math.min(maxH, wantH)))
 		SIDE_W = math.floor(math.min(MET.SIDE_W, WIN_W * 0.44))
 	end
 	computeSize()
@@ -2299,7 +2296,6 @@ function AlterLib:Window(cfg)
 	MakeCorner(scaleThumb, thSz / 2)
 	MakeStroke(scaleThumb, "BORDER_LT", 1)
 
-	local resizeGrip
 	local layoutHandlers = {}
 
 	local function relayout()
@@ -2560,7 +2556,6 @@ function AlterLib:Window(cfg)
 			minimised = not minimised
 		end
 		bodyFrame.Visible = true
-		if resizeGrip then resizeGrip.Visible = not minimised end
 		ClosePopups(nil)
 		Tw(root, M.Fold, {Size = UDim2.new(0, WIN_W, 0, minimised and TITLE_H or WIN_H)})
 		Tw(minBtn, M.Fold, {Rotation = minimised and 90 or 0})
@@ -2598,58 +2593,6 @@ function AlterLib:Window(cfg)
 			function() clampToScreen() end))
 	end
 
-	if not IS_MOB then
-		resizeGrip = MakeButton(root, {
-			Size = UDim2.fromOffset(18, 18),
-			Position = UDim2.new(1, -20, 1, -20),
-			BackgroundTransparency = 1,
-			ZIndex = 60,
-		})
-		for i = 0, 2 do
-			local d = MakeFrame(resizeGrip, {
-				Size = UDim2.fromOffset(3, 3),
-				Position = UDim2.new(1, -(4 + i * 5), 1, -4),
-				AnchorPoint = Vector2.new(1, 1),
-				BackgroundColor3 = "BORDER_LT",
-				BackgroundTransparency = 0.45,
-				ZIndex = 61,
-			})
-			MakeCorner(d, 2)
-			local e = MakeFrame(resizeGrip, {
-				Size = UDim2.fromOffset(3, 3),
-				Position = UDim2.new(1, -4, 1, -(4 + (i + 1) * 5)),
-				AnchorPoint = Vector2.new(1, 1),
-				BackgroundColor3 = "BORDER_LT",
-				BackgroundTransparency = 0.45,
-				ZIndex = 61,
-			})
-			MakeCorner(e, 2)
-		end
-		local sw, sh = 0, 0
-		table.insert(cleanup, BindDrag(resizeGrip,
-			function()
-				sw, sh = WIN_W, WIN_H
-				ClosePopups(nil)
-			end,
-			function(delta)
-				userW = sw + delta.X / math.max(currentScale, 0.2)
-				userH = sh + delta.Y / math.max(currentScale, 0.2)
-				computeSize()
-				relayout()
-			end,
-			function() clampToScreen() end))
-		Hover(resizeGrip,
-			function()
-				for _, d in ipairs(resizeGrip:GetChildren()) do
-					if d:IsA("Frame") then Tw(d, M.Quick, {BackgroundTransparency = 0, BackgroundColor3 = "ACCENT"}) end
-				end
-			end,
-			function()
-				for _, d in ipairs(resizeGrip:GetChildren()) do
-					if d:IsA("Frame") then Tw(d, M.Quick, {BackgroundTransparency = 0.45, BackgroundColor3 = "BORDER_LT"}) end
-				end
-			end)
-	end
 
 	local sidebarOpen = not IS_MOB
 	local scrim
@@ -2943,8 +2886,7 @@ function AlterLib:Window(cfg)
 			Visible = false,
 			ZIndex = 2,
 		})
-		pcall(function() panel.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar end)
-		MakePadding(panel, MET.PAD, MET.PAD + 12, MET.PAD, MET.PAD)
+		MakePadding(panel, MET.PAD, MET.PAD + 6, MET.PAD, MET.PAD)
 
 		local colHost = MakeFrame(panel, {
 			Size = UDim2.new(1, 0, 0, 0),
@@ -2973,16 +2915,19 @@ function AlterLib:Window(cfg)
 		local colIndex = 0
 
 		local function applyColumns()
-			local twoCol = wantCols >= 2 and not IS_MOB and (WIN_W - SIDE_W) >= 440
+			local contentW = WIN_W - (IS_MOB and 0 or SIDE_W)
+			local usable = math.max(140, contentW - MET.PAD * 2 - 5)
+			local twoCol = wantCols >= 2 and not IS_MOB and usable >= 420
 			if twoCol then
+				local colW = math.floor((usable - MET.GAP) / 2)
 				colLayout.FillDirection = Enum.FillDirection.Horizontal
-				colL.Size = UDim2.new(0.5, -MET.GAP, 0, 0)
-				colR.Size = UDim2.new(0.5, -MET.GAP, 0, 0)
+				colL.Size = UDim2.new(0, colW, 0, 0)
+				colR.Size = UDim2.new(0, colW, 0, 0)
 				colR.Visible = true
 			else
 				colLayout.FillDirection = Enum.FillDirection.Vertical
-				colL.Size = UDim2.new(1, -2, 0, 0)
-				colR.Size = UDim2.new(1, -2, 0, 0)
+				colL.Size = UDim2.new(0, usable, 0, 0)
+				colR.Size = UDim2.new(0, usable, 0, 0)
 				colR.Visible = #colR:GetChildren() > 1
 			end
 		end
@@ -3138,7 +3083,7 @@ function AlterLib:Window(cfg)
 				AutomaticSize = Enum.AutomaticSize.Y,
 				ZIndex = 4,
 			})
-			MakePadding(elems, 9, 11, 10, 10)
+			MakePadding(elems, 8, 10, 10, 10)
 			MakeList(elems, Enum.FillDirection.Vertical, 6)
 
 			local secRec = {wrap = wrap, name = title, elems = {}, userVisible = true}
@@ -4054,7 +3999,7 @@ function AlterLib:Window(cfg)
 				local suffix = tostring(o.Suffix or "")
 				local val = math.clamp(tonumber(o.Default) or lo, lo, hi)
 
-				local sRowH = IS_MOB and 62 or 54
+				local sRowH = IS_MOB and 60 or 52
 				local row, rowStrk = ElemRow(sRowH)
 				MakePadding(row, 9, 9, 13, 13)
 
@@ -4478,7 +4423,7 @@ function AlterLib:Window(cfg)
 				local open = false
 				local portal, listFrame, searchBox
 				local filter = ""
-				local ITEM_H = IS_MOB and 34 or 30
+				local ITEM_H = ROW_H - 4
 				local SEARCH_H = IS_MOB and 32 or 27
 				local maxSel = tonumber(o.Max)
 
