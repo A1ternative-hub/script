@@ -784,7 +784,8 @@ local function ReleasePopup(closeFn)
 	if ActivePopup == closeFn then ActivePopup = nil end
 end
 
-local Tip = {}
+local ActiveScale = 1
+local Tip = {token = 0}
 
 local function EnsureTip()
 	if Tip.frame and Tip.frame.Parent then return end
@@ -798,6 +799,9 @@ local function EnsureTip()
 		Visible = false,
 	})
 	MakeCorner(Tip.frame, MET.RAD_SM)
+	Tip.scale = Instance.new("UIScale")
+	Tip.scale.Scale = ActiveScale
+	Tip.scale.Parent = Tip.frame
 	Tip.stroke = MakeStroke(Tip.frame, "BORDER_LT", 1, 1)
 	MakePadding(Tip.frame, 7, 7, 10, 10)
 	Tip.label = MakeLabel(Tip.frame, {
@@ -819,20 +823,27 @@ end
 local function ShowTip(text, anchor)
 	if not text or text == "" or IS_MOB then return end
 	EnsureTip()
+	Tip.token += 1
+	local token = Tip.token
 	Tip.label.Text = text
+	Tip.scale.Scale = ActiveScale
+	Tip.frame.BackgroundTransparency = 1
+	Tip.stroke.Transparency = 1
+	Tip.label.TextTransparency = 1
 	Tip.frame.Visible = true
 	local vp = Viewport()
 	local inset = GuiService:GetGuiInset()
 	local ap = anchor.AbsolutePosition + inset
 	local as = anchor.AbsoluteSize
 	task.defer(function()
-		if not Tip.frame or not Tip.frame.Parent then return end
+		if token ~= Tip.token or not Tip.frame or not Tip.frame.Parent then return end
 		local w = Tip.frame.AbsoluteSize.X
 		local h = Tip.frame.AbsoluteSize.Y
 		local x = math.clamp(ap.X + as.X * 0.5 - w * 0.5, 8, math.max(8, vp.X - w - 8))
-		local y = ap.Y - h - 8
-		if y < 8 then y = ap.Y + as.Y + 8 end
-		Tip.frame.Position = UDim2.fromOffset(x, y + 4)
+		local y = ap.Y - h - 10
+		if y < 8 then y = ap.Y + as.Y + 10 end
+		x, y = math.floor(x), math.floor(y)
+		Tip.frame.Position = UDim2.fromOffset(x, y + 5)
 		Tw(Tip.frame, M.Quick, {BackgroundTransparency = 0.02, Position = UDim2.fromOffset(x, y)})
 		Tw(Tip.stroke, M.Quick, {Transparency = 0})
 		Tw(Tip.label, M.Quick, {TextTransparency = 0})
@@ -840,6 +851,7 @@ local function ShowTip(text, anchor)
 end
 
 local function HideTip()
+	Tip.token += 1
 	if not Tip.frame or not Tip.frame.Parent then return end
 	Tw(Tip.frame, M.Micro, {BackgroundTransparency = 1})
 	Tw(Tip.stroke, M.Micro, {Transparency = 1})
@@ -869,15 +881,21 @@ end
 
 local function AttachTip(btn, getText)
 	if IS_MOB then return end
+	local hover = 0
 	btn.MouseEnter:Connect(function()
+		hover += 1
+		local mine = hover
 		local t = getText()
-		if t and t ~= "" then
-			task.delay(0.35, function()
-				if btn.Parent and t == getText() then ShowTip(t, btn) end
-			end)
-		end
+		if not t or t == "" then return end
+		task.delay(0.3, function()
+			if mine ~= hover or not btn.Parent then return end
+			ShowTip(getText(), btn)
+		end)
 	end)
-	btn.MouseLeave:Connect(HideTip)
+	btn.MouseLeave:Connect(function()
+		hover += 1
+		HideTip()
+	end)
 end
 
 local function Press(host, strength)
@@ -2022,20 +2040,21 @@ function AlterLib:Window(cfg)
 		return math.floor(s * 20 + 0.5) / 20
 	end
 
-	local scaleIsAuto = (cfg.Scale == nil) or (cfg.Scale == "auto")
+	local scaleIsAuto = (cfg.Scale == "auto")
 	local currentScale = math.clamp(scaleIsAuto and AutoScale() or (tonumber(cfg.Scale) or 1), scaleMin, scaleMax)
 	local animFactor = 0.92
 	local function CurScale() return currentScale end
 
 	local WIN_W, WIN_H, SIDE_W
+	local userW, userH = nil, nil
 
 	local function computeSize()
 		local vp = Viewport()
 		local s = math.max(currentScale, 0.35)
 		local maxW = (vp.X - (IS_MOB and 16 or 40)) / s
 		local maxH = (vp.Y - (IS_MOB and 90 or 80)) / s
-		local wantW = tonumber(cfg.Width) or (IS_MOB and 380 or 620)
-		local wantH = tonumber(cfg.Height) or (IS_MOB and 460 or 490)
+		local wantW = userW or tonumber(cfg.Width) or (IS_MOB and 380 or 620)
+		local wantH = userH or tonumber(cfg.Height) or (IS_MOB and 460 or 490)
 		WIN_W = math.floor(math.max(300, math.min(maxW, wantW)))
 		WIN_H = math.floor(math.max(240, math.min(maxH, wantH)))
 		SIDE_W = math.floor(math.min(MET.SIDE_W, WIN_W * 0.44))
@@ -2296,6 +2315,7 @@ function AlterLib:Window(cfg)
 	MakeCorner(scaleThumb, thSz / 2)
 	MakeStroke(scaleThumb, "BORDER_LT", 1)
 
+	local resizeGrip
 	local layoutHandlers = {}
 
 	local function relayout()
@@ -2327,6 +2347,7 @@ function AlterLib:Window(cfg)
 			Tw(scaleFill, M.Quick, {Size = UDim2.new(pct, 0, 1, 0)})
 			Tw(scaleThumb, M.Quick, {Position = UDim2.new(pct, 0, 0.5, 0)})
 		end
+		ActiveScale = currentScale
 		applyUIScale()
 		computeSize()
 		relayout()
@@ -2407,7 +2428,7 @@ function AlterLib:Window(cfg)
 		BackgroundTransparency = 0,
 		TextXAlignment = Enum.TextXAlignment.Center,
 		Size = UDim2.fromOffset(MET.FAB, MET.FAB),
-		Position = UDim2.new(0, 12, 0.5, -MET.FAB / 2),
+		Position = UDim2.fromOffset(12, math.floor(Viewport().Y * 0.5 - MET.FAB / 2)),
 		ZIndex = 300,
 	})
 	MakeCorner(fab, MET.FAB / 2)
@@ -2556,6 +2577,7 @@ function AlterLib:Window(cfg)
 			minimised = not minimised
 		end
 		bodyFrame.Visible = true
+		if resizeGrip then resizeGrip.Visible = not minimised end
 		ClosePopups(nil)
 		Tw(root, M.Fold, {Size = UDim2.new(0, WIN_W, 0, minimised and TITLE_H or WIN_H)})
 		Tw(minBtn, M.Fold, {Rotation = minimised and 90 or 0})
@@ -2593,6 +2615,56 @@ function AlterLib:Window(cfg)
 			function() clampToScreen() end))
 	end
 
+
+	if not IS_MOB then
+		resizeGrip = MakeButton(root, {
+			Size = UDim2.fromOffset(16, 16),
+			Position = UDim2.new(1, -17, 1, -17),
+			BackgroundTransparency = 1,
+			ZIndex = 60,
+		})
+		local dots = {}
+		for i = 0, 2 do
+			for j = 0, 2 - i do
+				local d = MakeFrame(resizeGrip, {
+					Size = UDim2.fromOffset(2, 2),
+					Position = UDim2.new(1, -(3 + j * 4), 1, -(3 + i * 4)),
+					AnchorPoint = Vector2.new(1, 1),
+					BackgroundColor3 = "BORDER_LT",
+					BackgroundTransparency = 0.35,
+					ZIndex = 61,
+				})
+				MakeCorner(d, 1)
+				dots[#dots + 1] = d
+			end
+		end
+		local sw, sh = 0, 0
+		table.insert(cleanup, BindDrag(resizeGrip,
+			function()
+				sw, sh = WIN_W, WIN_H
+				ClosePopups(nil)
+				HideTip()
+			end,
+			function(delta)
+				local sc = math.max(currentScale, 0.2)
+				userW = sw + delta.X / sc
+				userH = sh + delta.Y / sc
+				computeSize()
+				relayout()
+			end,
+			function() clampToScreen() end))
+		Hover(resizeGrip,
+			function()
+				for _, d in ipairs(dots) do
+					Tw(d, M.Quick, {BackgroundTransparency = 0, BackgroundColor3 = "ACCENT"})
+				end
+			end,
+			function()
+				for _, d in ipairs(dots) do
+					Tw(d, M.Quick, {BackgroundTransparency = 0.35, BackgroundColor3 = "BORDER_LT"})
+				end
+			end)
+	end
 
 	local sidebarOpen = not IS_MOB
 	local scrim
@@ -2886,7 +2958,7 @@ function AlterLib:Window(cfg)
 			Visible = false,
 			ZIndex = 2,
 		})
-		MakePadding(panel, MET.PAD, MET.PAD + 6, MET.PAD, MET.PAD)
+		MakePadding(panel, MET.PAD, MET.PAD + 18, MET.PAD, MET.PAD)
 
 		local colHost = MakeFrame(panel, {
 			Size = UDim2.new(1, 0, 0, 0),
@@ -3102,6 +3174,7 @@ function AlterLib:Window(cfg)
 				Tw(chevA, M.Fold, {Rotation = rotA})
 				Tw(chevB, M.Fold, {Rotation = rotB})
 				Tw(stripe, M.Quick, {BackgroundColor3 = collapsed and "T_DIM" or "ACCENT"})
+				hdrCover.Visible = not collapsed
 				if collapsed then
 					local h = contentHeight()
 					elemsWrap.AutomaticSize = Enum.AutomaticSize.None
@@ -3178,6 +3251,8 @@ function AlterLib:Window(cfg)
 				return f, st
 			end
 
+			local CHIP_SZ = math.max(14, math.floor(ROW_H * 0.5))
+
 			local function ChipHost(row, rightOffset)
 				local host = MakeFrame(row, {
 					Size = UDim2.new(0, 0, 1, 0),
@@ -3193,10 +3268,10 @@ function AlterLib:Window(cfg)
 			end
 
 			local function Chip(host, glyph, colorKey, order)
-				local sz = IS_MOB and 19 or 17
+				local sz = CHIP_SZ
 				local c = MakeButton(host, {
 					Text = glyph,
-					TextSize = MET.F_TINY + 1,
+					TextSize = MET.F_SUB,
 					Font = Enum.Font.GothamBold,
 					TextColor3 = colorKey,
 					TextXAlignment = Enum.TextXAlignment.Center,
@@ -3465,7 +3540,7 @@ function AlterLib:Window(cfg)
 					OnClick(c, function()
 						if IS_MOB then AlterLib:Notify({Title = label, Message = o.Tooltip, Type = "info", Duration = 4}) end
 					end)
-					reserve += 22
+					reserve += CHIP_SZ + 5
 				end
 
 				local lbl = MakeLabel(row, {
@@ -3569,14 +3644,14 @@ function AlterLib:Window(cfg)
 				local reserve = MET.SW_W + 26
 				local chips = ChipHost(row, MET.SW_W + 22)
 				local applyRisk, isRisk, riskMsg = SetupRisk(row, rowStrk, chips, o.Risk == true, o.RiskText, label)
-				if o.Risk then reserve += 22 end
+				if o.Risk then reserve += CHIP_SZ + 5 end
 				if o.Tooltip then
 					local c = Chip(chips, "?", "T_DIM", 2)
 					AttachTip(c, function() return o.Tooltip end)
 					c.MouseButton1Click:Connect(function()
 						if IS_MOB then AlterLib:Notify({Title = label, Message = o.Tooltip, Type = "info", Duration = 4}) end
 					end)
-					reserve += 22
+					reserve += CHIP_SZ + 5
 				end
 
 				local lbl = MakeLabel(row, {
@@ -3802,14 +3877,14 @@ function AlterLib:Window(cfg)
 				local reserve = rightBlock
 				local chips = ChipHost(row, rightBlock + 4)
 				local applyRisk, isRisk, riskMsg = SetupRisk(row, rowStrk, chips, o.Risk == true, o.RiskText, label)
-				if o.Risk then reserve += 22 end
+				if o.Risk then reserve += CHIP_SZ + 5 end
 				if o.Tooltip then
 					local c = Chip(chips, "?", "T_DIM", 2)
 					AttachTip(c, function() return o.Tooltip end)
 					c.MouseButton1Click:Connect(function()
 						if IS_MOB then AlterLib:Notify({Title = label, Message = o.Tooltip, Type = "info", Duration = 4}) end
 					end)
-					reserve += 22
+					reserve += CHIP_SZ + 5
 				end
 
 				local lbl = MakeLabel(row, {
@@ -3917,7 +3992,7 @@ function AlterLib:Window(cfg)
 				if o.Tooltip then
 					local c = Chip(chips, "?", "T_DIM", 2)
 					AttachTip(c, function() return o.Tooltip end)
-					reserve += 22
+					reserve += CHIP_SZ + 5
 				end
 
 				local lbl = MakeLabel(row, {
