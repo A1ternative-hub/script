@@ -2600,19 +2600,30 @@ function AlterLib:Window(cfg)
 
 	if not IS_MOB then
 		resizeGrip = MakeButton(root, {
-			Size = UDim2.fromOffset(16, 16),
-			Position = UDim2.new(1, -16, 1, -16),
+			Size = UDim2.fromOffset(18, 18),
+			Position = UDim2.new(1, -20, 1, -20),
 			BackgroundTransparency = 1,
 			ZIndex = 60,
 		})
 		for i = 0, 2 do
-			MakeFrame(resizeGrip, {
-				Size = UDim2.fromOffset(8 - i * 2, 1),
-				Position = UDim2.new(1, -(10 - i * 2), 1, -(4 + i * 3)),
+			local d = MakeFrame(resizeGrip, {
+				Size = UDim2.fromOffset(3, 3),
+				Position = UDim2.new(1, -(4 + i * 5), 1, -4),
+				AnchorPoint = Vector2.new(1, 1),
 				BackgroundColor3 = "BORDER_LT",
-				BackgroundTransparency = 0.25,
+				BackgroundTransparency = 0.45,
 				ZIndex = 61,
 			})
+			MakeCorner(d, 2)
+			local e = MakeFrame(resizeGrip, {
+				Size = UDim2.fromOffset(3, 3),
+				Position = UDim2.new(1, -4, 1, -(4 + (i + 1) * 5)),
+				AnchorPoint = Vector2.new(1, 1),
+				BackgroundColor3 = "BORDER_LT",
+				BackgroundTransparency = 0.45,
+				ZIndex = 61,
+			})
+			MakeCorner(e, 2)
 		end
 		local sw, sh = 0, 0
 		table.insert(cleanup, BindDrag(resizeGrip,
@@ -2628,8 +2639,16 @@ function AlterLib:Window(cfg)
 			end,
 			function() clampToScreen() end))
 		Hover(resizeGrip,
-			function() Tw(resizeGrip, M.Quick, {BackgroundTransparency = 0.9, BackgroundColor3 = "HOVER"}) end,
-			function() Tw(resizeGrip, M.Quick, {BackgroundTransparency = 1}) end)
+			function()
+				for _, d in ipairs(resizeGrip:GetChildren()) do
+					if d:IsA("Frame") then Tw(d, M.Quick, {BackgroundTransparency = 0, BackgroundColor3 = "ACCENT"}) end
+				end
+			end,
+			function()
+				for _, d in ipairs(resizeGrip:GetChildren()) do
+					if d:IsA("Frame") then Tw(d, M.Quick, {BackgroundTransparency = 0.45, BackgroundColor3 = "BORDER_LT"}) end
+				end
+			end)
 	end
 
 	local sidebarOpen = not IS_MOB
@@ -2924,7 +2943,8 @@ function AlterLib:Window(cfg)
 			Visible = false,
 			ZIndex = 2,
 		})
-		MakePadding(panel, MET.PAD, MET.PAD + 10, MET.PAD, MET.PAD)
+		pcall(function() panel.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar end)
+		MakePadding(panel, MET.PAD, MET.PAD + 12, MET.PAD, MET.PAD)
 
 		local colHost = MakeFrame(panel, {
 			Size = UDim2.new(1, 0, 0, 0),
@@ -2953,16 +2973,16 @@ function AlterLib:Window(cfg)
 		local colIndex = 0
 
 		local function applyColumns()
-			local twoCol = wantCols >= 2 and not IS_MOB and WIN_W - SIDE_W >= 460
+			local twoCol = wantCols >= 2 and not IS_MOB and (WIN_W - SIDE_W) >= 440
 			if twoCol then
 				colLayout.FillDirection = Enum.FillDirection.Horizontal
-				colL.Size = UDim2.new(0.5, -MET.GAP / 2, 0, 0)
-				colR.Size = UDim2.new(0.5, -MET.GAP / 2, 0, 0)
+				colL.Size = UDim2.new(0.5, -MET.GAP, 0, 0)
+				colR.Size = UDim2.new(0.5, -MET.GAP, 0, 0)
 				colR.Visible = true
 			else
 				colLayout.FillDirection = Enum.FillDirection.Vertical
-				colL.Size = UDim2.new(1, 0, 0, 0)
-				colR.Size = UDim2.new(1, 0, 0, 0)
+				colL.Size = UDim2.new(1, -2, 0, 0)
+				colR.Size = UDim2.new(1, -2, 0, 0)
 				colR.Visible = #colR:GetChildren() > 1
 			end
 		end
@@ -3219,7 +3239,7 @@ function AlterLib:Window(cfg)
 					AutomaticSize = Enum.AutomaticSize.X,
 					Position = UDim2.new(1, -rightOffset, 0, 0),
 					AnchorPoint = Vector2.new(1, 0),
-					ZIndex = 9,
+					ZIndex = 20,
 				})
 				local l = MakeList(host, Enum.FillDirection.Horizontal, 4)
 				l.VerticalAlignment = Enum.VerticalAlignment.Center
@@ -3239,7 +3259,7 @@ function AlterLib:Window(cfg)
 					BackgroundTransparency = 0,
 					Size = UDim2.fromOffset(sz, sz),
 					LayoutOrder = order or 1,
-					ZIndex = 10,
+					ZIndex = 21,
 				})
 				MakeCorner(c, sz / 2)
 				MakeStroke(c, colorKey, 1, 0.55)
@@ -3749,7 +3769,7 @@ function AlterLib:Window(cfg)
 					if state.listening then return end
 					state.listening = true
 					pill.Text = "..."
-					if modeTag then modeTag.Visible = false end
+					if modeDot then modeDot.Visible = false end
 					Tw(pill, M.Quick, {TextColor3 = "ACCENT", BackgroundColor3 = "ELEM"})
 					Tw(pStroke, M.Quick, {Color = "ACCENT"})
 					task.spawn(function()
@@ -3901,7 +3921,7 @@ function AlterLib:Window(cfg)
 				obj._unbind = function() kp.Detach() unreg() end
 
 				local hit = MakeButton(row, {
-					Size = UDim2.new(1, -(rightBlock + 6), 1, 0),
+					Size = UDim2.new(1, 0, 1, 0),
 					ZIndex = 15,
 				})
 				OnClick(hit, function() setState(not state) end, row, 0.014)
@@ -4000,7 +4020,7 @@ function AlterLib:Window(cfg)
 				table.insert(cleanup, unreg)
 				obj._unbind = function() kp.Detach() unreg() end
 
-				local hit = MakeButton(row, {Size = UDim2.new(1, -(pillW + 22), 1, 0), ZIndex = 15})
+				local hit = MakeButton(row, {Size = UDim2.new(1, 0, 1, 0), ZIndex = 15})
 				OnClick(hit, fire, row, 0.014)
 				RowHover(hit, row, rowStrk)
 				if o.Tooltip then AttachTip(hit, function() return o.Tooltip end) end
@@ -4011,7 +4031,8 @@ function AlterLib:Window(cfg)
 				function obj:GetMode() return kp.state.mode end
 
 				cfgSys:Register(flag, function() return KeyName(kp.state.key) end, function(v)
-					kp.SetKey(KeyFromName(v), false)
+					local k = KeyFromName(v)
+					if k then kp.SetKey(k, true) end
 				end)
 				obj._hits = {hit}
 				return Decorate(obj, row, lbl, {text = label})
