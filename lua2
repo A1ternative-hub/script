@@ -334,54 +334,141 @@ function AlterLib:GetMotion() return MotionScale end
 
 local ThemeListeners = {}
 
-function AlterLib:SetTheme(name, instant)
-	local pal = type(name) == "table" and name or Themes[name]
-	if not pal then return false end
-	for k, v in pairs(pal) do C[k] = v end
+local function Repaint(only, instant)
 	local ti = instant and M.Micro or M.Base
 	for inst, map in pairs(PaintReg) do
 		if typeof(inst) == "Instance" and inst.Parent then
 			for prop, key in pairs(map) do
-				local col = C[key]
-				if col then
-					if instant then
-						pcall(function() inst[prop] = col end)
-					else
-						Tw(inst, ti, {[prop] = col})
+				if (not only) or only[key] then
+					local col = C[key]
+					if col then
+						if instant then
+							pcall(function() inst[prop] = col end)
+						else
+							Tw(inst, ti, {[prop] = col})
+						end
 					end
 				end
 			end
 		end
 	end
-	AlterLib.Theme = type(name) == "string" and name or "Custom"
-	for _, fn in ipairs(ThemeListeners) do pcall(fn, AlterLib.Theme) end
+end
+
+local function FireTheme()
+	for i = #ThemeListeners, 1, -1 do
+		local fn = ThemeListeners[i]
+		if fn then pcall(fn, AlterLib.Theme) end
+	end
+end
+
+local ACCENT_KEYS = {ACCENT = true, ACCENT_DIM = true, ON = true, ON_ROW = true, ACCENT_TXT = true}
+
+function AlterLib:SetTheme(name, instant)
+	local pal = type(name) == "table" and name or Themes[name]
+	if not pal then return false end
+	for k, v in pairs(pal) do
+		if typeof(v) == "Color3" then C[k] = v end
+	end
+	Repaint(nil, instant)
+	if type(name) == "string" then
+		AlterLib.Theme = name
+		AlterLib.Customised = false
+	else
+		AlterLib.Customised = true
+	end
+	FireTheme()
 	return true
 end
 AlterLib.Theme = "Alter"
+AlterLib.Customised = false
 
-function AlterLib:SetAccent(color)
-	if typeof(color) ~= "Color3" then return end
+function AlterLib:SetAccent(color, instant)
+	if typeof(color) ~= "Color3" then return false end
 	local h, s, v = color:ToHSV()
 	C.ACCENT = color
 	C.ACCENT_DIM = Color3.fromHSV(h, s, math.max(v * 0.55, 0.12))
 	C.ON = Color3.fromHSV(h, s * 0.9, math.max(v * 0.72, 0.2))
 	C.ON_ROW = Color3.fromHSV(h, math.min(s, 0.5), math.max(v * 0.22, 0.1))
 	C.ACCENT_TXT = (v > 0.65 and s < 0.6) and Color3.fromRGB(12, 12, 14) or Color3.fromRGB(255, 255, 255)
-	for inst, map in pairs(PaintReg) do
-		if typeof(inst) == "Instance" and inst.Parent then
-			for prop, key in pairs(map) do
-				if key == "ACCENT" or key == "ACCENT_DIM" or key == "ON" or key == "ON_ROW" or key == "ACCENT_TXT" then
-					Tw(inst, M.Base, {[prop] = C[key]})
-				end
-			end
-		end
-	end
+	Repaint(ACCENT_KEYS, instant)
+	return true
 end
 
 function AlterLib:GetAccent() return C.ACCENT end
 
+function AlterLib:SetColor(key, color, instant)
+	if type(key) ~= "string" or typeof(color) ~= "Color3" then return false end
+	if C[key] == nil then return false end
+	C[key] = color
+	Repaint({[key] = true}, instant)
+	AlterLib.Customised = true
+	return true
+end
+
+function AlterLib:SetColors(map, instant)
+	if type(map) ~= "table" then return false end
+	local only, any = {}, false
+	for k, v in pairs(map) do
+		if type(k) == "string" and typeof(v) == "Color3" and C[k] ~= nil then
+			C[k] = v
+			only[k] = true
+			any = true
+		end
+	end
+	if not any then return false end
+	Repaint(only, instant)
+	AlterLib.Customised = true
+	return true
+end
+
+function AlterLib:GetColor(key) return C[key] end
+
+function AlterLib:GetColors()
+	local out = {}
+	for k, v in pairs(C) do out[k] = v end
+	return out
+end
+
+function AlterLib:GetColorKeys()
+	local out = {}
+	for k, v in pairs(Themes.Alter) do
+		if typeof(v) == "Color3" then table.insert(out, k) end
+	end
+	table.sort(out)
+	return out
+end
+
+function AlterLib:AddTheme(name, palette)
+	if type(name) ~= "string" or name == "" or type(palette) ~= "table" then return false end
+	local base = {}
+	for k, v in pairs(Themes.Alter) do base[k] = v end
+	for k, v in pairs(palette) do
+		if typeof(v) == "Color3" and base[k] ~= nil then base[k] = v end
+	end
+	Themes[name] = base
+	return true
+end
+
+function AlterLib:GetThemeNames()
+	local out = {}
+	for k in pairs(Themes) do table.insert(out, k) end
+	table.sort(out)
+	return out
+end
+
+function AlterLib:ResetTheme(instant)
+	local name = Themes[AlterLib.Theme] and AlterLib.Theme or "Alter"
+	return AlterLib:SetTheme(name, instant)
+end
+
 function AlterLib:OnThemeChanged(fn)
-	if type(fn) == "function" then table.insert(ThemeListeners, fn) end
+	if type(fn) ~= "function" then return function() end end
+	table.insert(ThemeListeners, fn)
+	return function()
+		for i = #ThemeListeners, 1, -1 do
+			if ThemeListeners[i] == fn then table.remove(ThemeListeners, i) break end
+		end
+	end
 end
 
 local function MakeFrame(parent, props)
@@ -5278,6 +5365,89 @@ function AlterLib:Window(cfg)
 				end
 				function obj:Get() return img.Image end
 				return Decorate(obj, f, nil, {text = tostring(o.Name or "image")})
+			end
+
+			function secObj:ThemePicker(opt)
+				opt = opt or {}
+				local obj = {}
+				local applying = false
+				local dd, accent
+				local pickers = {}
+
+				if opt.Themes ~= false then
+					dd = secObj:Dropdown({
+						Name = opt.Name or "Theme",
+						Options = AlterLib:GetThemeNames(),
+						Default = AlterLib.Theme,
+						Search = false,
+						Tooltip = opt.Tooltip,
+						Flag = opt.Flag,
+						Callback = function(v)
+							if applying or not v then return end
+							AlterLib:SetTheme(v)
+							SafeCall(opt.Callback, v)
+						end,
+					})
+				end
+
+				if opt.Accent ~= false then
+					accent = secObj:ColorPicker({
+						Name = opt.AccentName or "Accent",
+						Default = C.ACCENT,
+						Flag = opt.AccentFlag,
+						Callback = function(col)
+							if applying then return end
+							AlterLib:SetAccent(col)
+						end,
+					})
+				end
+
+				if opt.Advanced then
+					local keys = opt.Keys or {"BG", "PANEL", "CARD", "ELEM", "BORDER", "T_PRI", "T_SEC"}
+					for _, key in ipairs(keys) do
+						if C[key] then
+							pickers[key] = secObj:ColorPicker({
+								Name = key,
+								Default = C[key],
+								Callback = function(col)
+									if applying then return end
+									AlterLib:SetColor(key, col)
+								end,
+							})
+						end
+					end
+				end
+
+				local function sync()
+					if applying then return end
+					applying = true
+					if dd then pcall(function() dd:Set(AlterLib.Theme, true) end) end
+					if accent then pcall(function() accent:Set(C.ACCENT, true) end) end
+					for key, pk in pairs(pickers) do
+						pcall(function() pk:Set(C[key], true) end)
+					end
+					applying = false
+				end
+
+				table.insert(cleanup, AlterLib:OnThemeChanged(sync))
+
+				if opt.Reset ~= false then
+					secObj:Button({
+						Name = opt.ResetName or "Reset colours",
+						Callback = function()
+							AlterLib:ResetTheme()
+							sync()
+						end,
+					})
+				end
+
+				function obj:Sync() sync() return self end
+				function obj:Get() return AlterLib.Theme end
+				function obj:Set(name)
+					if AlterLib:SetTheme(name) then sync() end
+					return self
+				end
+				return obj
 			end
 
 			return secObj
