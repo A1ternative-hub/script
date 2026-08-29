@@ -207,7 +207,7 @@ local MET = {
 	PILL_W = IS_MOB and 62 or 56,
 	PILL_H = IS_MOB and 24 or 20,
 	PAD = IS_MOB and 10 or 12,
-	GAP = IS_MOB and 7 or 8,
+	GAP = IS_MOB and 9 or 10,
 	DD_MAX = IS_MOB and 200 or 160,
 	FAB = IS_MOB and 46 or 38,
 	RAD = 8,
@@ -3242,8 +3242,8 @@ function AlterLib:Window(cfg)
 				AutomaticSize = Enum.AutomaticSize.Y,
 				ZIndex = 4,
 			})
-			MakePadding(elems, 8, 10, 10, 10)
-			MakeList(elems, Enum.FillDirection.Vertical, 6)
+			MakePadding(elems, 11, 12, 12, 12)
+			MakeList(elems, Enum.FillDirection.Vertical, 8)
 
 			local secRec = {wrap = wrap, name = title, elems = {}, userVisible = true}
 			table.insert(tabObj._sections, secRec)
@@ -3348,7 +3348,7 @@ function AlterLib:Window(cfg)
 					AnchorPoint = Vector2.new(1, 0),
 					ZIndex = 20,
 				})
-				local l = MakeList(host, Enum.FillDirection.Horizontal, 4)
+				local l = MakeList(host, Enum.FillDirection.Horizontal, 6)
 				l.VerticalAlignment = Enum.VerticalAlignment.Center
 				l.HorizontalAlignment = Enum.HorizontalAlignment.Right
 				return host
@@ -3527,8 +3527,8 @@ function AlterLib:Window(cfg)
 					AutomaticSize = Enum.AutomaticSize.Y,
 					ZIndex = 6,
 				})
-				MakePadding(inner, 9, 10, 11, 11)
-				MakeList(inner, Enum.FillDirection.Vertical, 3)
+				MakePadding(inner, 10, 11, 12, 12)
+				MakeList(inner, Enum.FillDirection.Vertical, 4)
 				local t = MakeLabel(inner, {
 					Text = tostring(o.Title or "Title"),
 					TextSize = MET.F_ROW,
@@ -3619,15 +3619,15 @@ function AlterLib:Window(cfg)
 				})
 				MakeCorner(glow, 2)
 
-				local reserve = 34
-				local chips = ChipHost(row, 30)
+				local reserve = 40
+				local chips = ChipHost(row, 36)
 				if o.Tooltip then
 					local c = Chip(chips, "?", "T_DIM", 2)
 					AttachTip(c, function() return o.Tooltip end)
 					OnClick(c, function()
 						if IS_MOB then AlterLib:Notify({Title = label, Message = o.Tooltip, Type = "info", Duration = 4}) end
 					end)
-					reserve += CHIP_SZ + 5
+					reserve += CHIP_SZ + 7
 				end
 
 				local lbl = MakeLabel(row, {
@@ -3728,17 +3728,17 @@ function AlterLib:Window(cfg)
 				local obj, state = {}, o.Default == true
 				local row, rowStrk = ElemRow(ROW_H)
 
-				local reserve = MET.SW_W + 26
-				local chips = ChipHost(row, MET.SW_W + 22)
+				local reserve = MET.SW_W + 30
+				local chips = ChipHost(row, MET.SW_W + 26)
 				local applyRisk, isRisk, riskMsg = SetupRisk(row, rowStrk, chips, o.Risk == true, o.RiskText, label)
-				if o.Risk then reserve += CHIP_SZ + 5 end
+				if o.Risk then reserve += CHIP_SZ + 7 end
 				if o.Tooltip then
 					local c = Chip(chips, "?", "T_DIM", 2)
 					AttachTip(c, function() return o.Tooltip end)
 					c.MouseButton1Click:Connect(function()
 						if IS_MOB then AlterLib:Notify({Title = label, Message = o.Tooltip, Type = "info", Duration = 4}) end
 					end)
-					reserve += CHIP_SZ + 5
+					reserve += CHIP_SZ + 7
 				end
 
 				local lbl = MakeLabel(row, {
@@ -3960,18 +3960,18 @@ function AlterLib:Window(cfg)
 				local row, rowStrk = ElemRow(ROW_H)
 
 				local pillW = MET.PILL_W
-				local rightBlock = MET.SW_W + pillW + 30
+				local rightBlock = MET.SW_W + pillW + 34
 				local reserve = rightBlock
-				local chips = ChipHost(row, rightBlock + 4)
+				local chips = ChipHost(row, rightBlock + 6)
 				local applyRisk, isRisk, riskMsg = SetupRisk(row, rowStrk, chips, o.Risk == true, o.RiskText, label)
-				if o.Risk then reserve += CHIP_SZ + 5 end
+				if o.Risk then reserve += CHIP_SZ + 7 end
 				if o.Tooltip then
 					local c = Chip(chips, "?", "T_DIM", 2)
 					AttachTip(c, function() return o.Tooltip end)
 					c.MouseButton1Click:Connect(function()
 						if IS_MOB then AlterLib:Notify({Title = label, Message = o.Tooltip, Type = "info", Duration = 4}) end
 					end)
-					reserve += CHIP_SZ + 5
+					reserve += CHIP_SZ + 7
 				end
 
 				local lbl = MakeLabel(row, {
@@ -4009,7 +4009,7 @@ function AlterLib:Window(cfg)
 					end
 				end
 
-				kp = KeyPill(row, MET.SW_W + 22, pillW, {key = o.Key, mode = o.Mode or "Toggle"}, {
+				kp = KeyPill(row, MET.SW_W + 26, pillW, {key = o.Key, mode = o.Mode or "Toggle"}, {
 					onPress = function() setState(not state) end,
 					onHold = function(down) setState(down) end,
 					onKeyChanged = function() cfgSys:Touch(flag, state) end,
@@ -4074,12 +4074,12 @@ function AlterLib:Window(cfg)
 				if isMenuBind and o.Key then winObj:SetKeybind(o.Key) end
 
 				local pillW = MET.PILL_W + 10
-				local reserve = pillW + 26
-				local chips = ChipHost(row, pillW + 22)
+				local reserve = pillW + 30
+				local chips = ChipHost(row, pillW + 26)
 				if o.Tooltip then
 					local c = Chip(chips, "?", "T_DIM", 2)
 					AttachTip(c, function() return o.Tooltip end)
-					reserve += CHIP_SZ + 5
+					reserve += CHIP_SZ + 7
 				end
 
 				local lbl = MakeLabel(row, {
@@ -4508,8 +4508,8 @@ function AlterLib:Window(cfg)
 					Font = Enum.Font.GothamBold,
 					TextColor3 = valueColorKey or "T_PRI",
 					TextXAlignment = Enum.TextXAlignment.Right,
-					Size = UDim2.new(0.5, -34, 1, 0),
-					Position = UDim2.new(1, -32, 0, 0),
+					Size = UDim2.new(0.5, -40, 1, 0),
+					Position = UDim2.new(1, -38, 0, 0),
 					AnchorPoint = Vector2.new(1, 0),
 					ZIndex = 12,
 				})
